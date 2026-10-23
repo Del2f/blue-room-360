@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>소문의 낙원 — 무이네 시안 (Cycles)</title>
+<meta name="description" content="AKMU '소문의 낙원' 컨셉 비공식 시안. Blender Cycles로 렌더한 무이네 모래언덕과 이찬혁의 방을 360°로 둘러봅니다.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  /* Layout: full-screen 360° Cycles renders (dunes, room) joined by pre-rendered door walks; UI is typed paper slips on top. */
+  :root {
+    --paper: #F3ECDC;
+    --ink: #2B2620;
+    --ink-soft: #6B5F50;
+    --sand: #D98C5F;
+    --marigold: #E9B949;
+    --rust: #B4543A;
+    --sheet: rgba(243, 236, 220, 0.9);
+    --font-type: "Special Elite", "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", monospace;
+    --font-ui: "Courier Prime", "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", monospace;
+    color-scheme: light;
+  }
+  html, body { height: 100%; overflow: hidden; margin: 0; }
+  body { background: #E8D2B4; color: var(--ink); font-family: var(--font-ui); font-size: 14px; -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  :focus-visible { outline: 2px dashed var(--rust); outline-offset: 3px; }
+
+  #stage { position: fixed; inset: 0; touch-action: none; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  body.fine #stage { cursor: none; }
+  .clip { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 20; opacity: 0; visibility: hidden; pointer-events: none; background: #000; }
+  .grain { position: fixed; inset: 0; z-index: 40; pointer-events: none; opacity: .1; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .17  0 0 0 0 .15  0 0 0 0 .12  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+
+  .ui { position: fixed; inset: 0; z-index: 22; display: flex; flex-direction: column; justify-content: space-between;
+    padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px));
+    padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px); pointer-events: none; visibility: hidden; }
+  body.entered .ui { visibility: visible; }
+  body.travelling .ui > * { opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+  .ui > * { pointer-events: auto; transition: opacity .4s ease; }
+  .ui::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(92px + env(safe-area-inset-top, 0px)); background: linear-gradient(to bottom, rgba(243,236,220,.8), rgba(243,236,220,0)); pointer-events: none; }
+  body.travelling .ui::before { opacity: 0; }
+  .menu { display: flex; gap: 16px; position: relative; z-index: 3; }
+  .mbtn { flex: 1 1 0; min-width: 0; text-align: left; padding: 20px 0 9px; font-family: var(--font-type); font-size: 16px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1.5px dashed var(--ink); display: flex; align-items: baseline; gap: 8px; }
+  .mbtn small { font-family: var(--font-ui); font-size: 10px; letter-spacing: .04em; color: var(--ink-soft); text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mbtn.is-active { border-bottom-style: solid; border-bottom-width: 3px; padding-bottom: 7.5px; }
+  .mbtn.is-active::before { content: "▸"; color: var(--rust); }
+  .spacer { height: 1px; pointer-events: none; }
+  .where { position: absolute; left: max(20px, env(safe-area-inset-left, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 6px; justify-items: start; }
+  .where-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--paper); text-shadow: 0 1px 2px rgba(0,0,0,.55); }
+  .where-name { font-family: var(--font-type); font-size: 22px; line-height: 1; background: var(--paper); padding: 4px 8px 2px; border: 1.5px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+  .travel { font-size: 12px; font-weight: 700; padding: 6px 10px; border: 1.5px solid var(--ink); background: var(--marigold); box-shadow: 2px 2px 0 var(--ink); }
+  .travel:hover { background: var(--paper); }
+  .mute { position: absolute; right: max(20px, env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); font-size: 12px; font-weight: 700; letter-spacing: .08em; padding: 8px 11px; border: 1.5px solid var(--ink); background: var(--paper); box-shadow: 2px 2px 0 var(--ink); }
+  .hint { position: absolute; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 7px 12px; background: var(--paper); border: 1.5px dashed var(--ink); font-size: 13px; white-space: nowrap; pointer-events: none; }
+  .toast { position: absolute; left: 50%; top: calc(86px + env(safe-area-inset-top, 0px)); transform: translateX(-50%) rotate(-.6deg); width: max-content; max-width: min(440px, calc(100% - 40px)); padding: 12px 16px 11px; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); font-family: var(--font-type); font-size: 15px; line-height: 1.5; opacity: 0; visibility: hidden; }
+  .toast small { display: block; font-family: var(--font-ui); font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+
+  .panel { position: absolute; left: max(20px, env(safe-area-inset-left, 0px)); top: calc(86px + env(safe-area-inset-top, 0px)); bottom: calc(110px + env(safe-area-inset-bottom, 0px)); width: 340px; display: flex; flex-direction: column; z-index: 2; background: repeating-linear-gradient(to bottom, transparent 0 27px, rgba(43,38,32,.08) 27px 28px), var(--sheet); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1.5px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); }
+  .panel::before { content: ""; position: absolute; top: -9px; left: 50%; width: 70px; height: 18px; transform: translateX(-50%) rotate(-2deg); background: rgba(233,185,73,.75); border: 1px solid rgba(43,38,32,.25); }
+  .panel-head { display: flex; align-items: center; gap: 10px; padding: 16px 12px 10px 16px; border-bottom: 1.5px solid var(--ink); }
+  .panel-head h2 { flex: 1; min-width: 0; margin: 0; font-family: var(--font-type); font-weight: 400; font-size: 24px; line-height: 1.1; letter-spacing: .03em; }
+  .pbtn { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 5px 8px; border: 1.5px solid var(--ink); background: var(--paper); }
+  .pbtn:hover { background: var(--marigold); }
+  .panel-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px; overscroll-behavior: contain; line-height: 1.55; }
+  .panel-foot { margin: 0; padding: 8px 16px 10px; font-size: 10.5px; color: var(--ink-soft); border-top: 1px dashed rgba(43,38,32,.4); }
+  .caret::after { content: "▌"; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .kicker { margin: 0 0 4px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+  .album-top { display: grid; grid-template-columns: 112px 1fr; gap: 14px; align-items: start; margin-bottom: 14px; }
+  .album-top img { width: 112px; aspect-ratio: 1; object-fit: cover; border: 1.5px solid var(--ink); transform: rotate(-1.5deg); box-shadow: 3px 3px 0 var(--ink); }
+  .album-top h3 { margin: 0 0 6px; font-family: var(--font-type); font-weight: 400; font-size: 19px; line-height: 1.25; text-wrap: balance; }
+  .meta { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .tracks { list-style: none; margin: 0 0 14px; padding: 0; border-top: 1.5px solid var(--ink); }
+  .tracks li { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; padding: 6px 0; border-bottom: 1px dotted rgba(43,38,32,.45); font-size: 13px; }
+  .tracks li span:first-child, .tracks li span:last-child { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+  .tag { display: inline-block; margin-left: 6px; padding: 0 5px; font-size: 10px; font-weight: 700; letter-spacing: .06em; border: 1px solid var(--rust); color: var(--rust); vertical-align: 1px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .note { margin: 12px 0 0; padding: 8px 10px; font-size: 12px; background: rgba(233,185,73,.22); border-left: 3px solid var(--marigold); }
+  .vlist { display: grid; gap: 14px; }
+  .vcard { display: grid; gap: 4px; text-align: left; }
+  .vcard img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border: 1.5px solid var(--ink); }
+  .vcard:hover img { box-shadow: 3px 3px 0 var(--ink); transform: translate(-1px,-1px); }
+  .vcard b { font-family: var(--font-type); font-weight: 400; font-size: 15px; }
+  .vcard span { font-size: 12px; color: var(--ink-soft); }
+  .vcard.is-playing span { color: var(--rust); font-weight: 700; }
+  .rows { list-style: none; margin: 0; padding: 0; }
+  .rows li { display: grid; grid-template-columns: 70px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px dotted rgba(43,38,32,.45); }
+  .rows li:first-child { border-top: 1.5px solid var(--ink); }
+  .rows time { font-family: var(--font-type); font-size: 17px; }
+  .rows .place { display: grid; font-size: 13px; min-width: 0; }
+  .rows .place span { font-size: 11.5px; color: var(--ink-soft); }
+  .letter { display: grid; gap: 10px; }
+  .letter dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13px; }
+  .letter dt { color: var(--ink-soft); }
+  .letter dd { margin: 0; user-select: all; overflow-wrap: anywhere; }
+  .letter label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .letter textarea { width: 100%; box-sizing: border-box; min-height: 120px; resize: vertical; padding: 10px; font-family: var(--font-type); font-size: 15px; line-height: 1.6; color: var(--ink); background: repeating-linear-gradient(to bottom, #FBF7EE 0 23px, rgba(43,38,32,.12) 23px 24px); border: 1.5px solid var(--ink); }
+  .goods { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .goods div { display: grid; gap: 3px; font-size: 12px; }
+  .goods img { width: 100%; aspect-ratio: 1; object-fit: cover; border: 1.5px solid var(--ink); }
+  .goods b { font-family: var(--font-type); font-weight: 400; font-size: 14px; }
+  .store { display: inline-block; margin-top: 14px; font-weight: 700; font-size: 12px; letter-spacing: .08em; color: var(--ink); background: var(--marigold); border: 1.5px solid var(--ink); padding: 8px 11px; text-decoration: none; box-shadow: 2px 2px 0 var(--ink); }
+
+  .veil { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; text-align: center; background: var(--paper); opacity: 0; visibility: hidden; padding-inline: 24px; }
+  .veil p { margin: 0; font-family: var(--font-type); font-size: clamp(20px, 3.4vw, 34px); line-height: 1.4; }
+  .veil small { display: block; margin-top: 10px; font-family: var(--font-ui); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+
+  .intro { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; text-align: center; background: radial-gradient(ellipse at 50% 120%, #D98C5F 0%, #E8C9A2 45%, #F3ECDC 80%); padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); padding-block: 24px; }
+  .intro-tag { position: absolute; top: calc(18px + env(safe-area-inset-top, 0px)); left: max(20px, env(safe-area-inset-left, 0px)); right: max(20px, env(safe-area-inset-right, 0px)); display: flex; justify-content: space-between; gap: 12px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .intro-tag span { white-space: nowrap; }
+  .intro-sheet { box-sizing: border-box; width: min(520px, 100%); padding: 44px 36px 34px; position: relative; background: repeating-linear-gradient(to bottom, #FBF7EE 0 31px, rgba(43,38,32,.08) 31px 32px); border: 1.5px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); transform: rotate(-.8deg); }
+  .intro-sheet::before { content: ""; position: absolute; top: -10px; left: 50%; width: 90px; height: 20px; transform: translateX(-50%) rotate(3deg); background: rgba(233,185,73,.8); border: 1px solid rgba(43,38,32,.25); }
+  .intro h1 { margin: 0; font-family: var(--font-type); font-weight: 400; font-size: clamp(40px, 8vw, 64px); line-height: 1.05; letter-spacing: .02em; min-height: 1.05em; }
+  .intro .en { margin: 10px 0 0; font-family: var(--font-type); font-size: 15px; letter-spacing: .3em; min-height: 1.5em; }
+  .intro .line { margin: 22px auto 0; max-width: 30ch; font-size: 14px; line-height: 1.8; min-height: 3.6em; }
+  .intro-foot { margin-top: 22px; min-height: 44px; display: grid; justify-items: center; gap: 8px; }
+  .loading { font-size: 12px; letter-spacing: .2em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .bar { width: 220px; height: 6px; border: 1.5px solid var(--ink); background: #FBF7EE; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--sand); }
+  .enter { font-family: var(--font-type); font-size: 17px; letter-spacing: .06em; padding: 10px 18px 8px; border: 1.5px solid var(--ink); background: var(--marigold); box-shadow: 3px 3px 0 var(--ink); transition: transform .2s ease, box-shadow .2s ease; }
+  .enter:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+  .enter-note { margin: 0; font-size: 12px; color: var(--ink-soft); }
+
+  .cursor { position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none; display: none; }
+  body.fine .cursor { display: block; }
+  .cursor.is-hidden { visibility: hidden; }
+  .cursor-inner { display: flex; align-items: flex-start; gap: 4px; transform-origin: 3px 3px; transition: transform .18s ease; }
+  .cursor.is-hot .cursor-inner { transform: scale(1.15); }
+  .cursor.is-down .cursor-inner { transform: scale(.88); }
+  .cursor svg { width: 30px; height: 30px; flex: none; }
+  .cursor-label { margin-top: 20px; padding: 3px 7px 2px; background: var(--paper); border: 1.5px solid var(--ink); font-family: var(--font-type); font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .2s ease; }
+  .cursor.is-hot .cursor-label { opacity: 1; }
+
+  @media (max-width: 640px) {
+    .ui { flex-direction: column-reverse; }
+    .ui::before { top: auto; bottom: 0; height: calc(96px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, rgba(243,236,220,.92), rgba(243,236,220,0)); }
+    .menu { gap: 6px; padding-bottom: 6px; }
+    .mbtn { font-size: 12px; letter-spacing: .02em; justify-content: center; padding: 14px 0 10px; border-bottom: 0; border-top: 1.5px dashed var(--ink); }
+    .mbtn small { display: none; }
+    .mbtn.is-active { border-bottom: 0; padding-bottom: 10px; border-top: 3px solid var(--ink); padding-top: 12.5px; }
+    .mbtn.is-active::before { display: none; }
+    .where { bottom: auto; top: calc(14px + env(safe-area-inset-top, 0px)); }
+    .where-name { font-size: 17px; }
+    .where-label { display: none; }
+    .mute { bottom: auto; top: calc(14px + env(safe-area-inset-top, 0px)); }
+    .hint { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); font-size: 12px; white-space: normal; width: max-content; max-width: calc(100% - 48px); text-align: center; }
+    .toast { top: calc(112px + env(safe-area-inset-top, 0px)); font-size: 14px; }
+    .panel { top: auto; width: auto; right: max(20px, env(safe-area-inset-right, 0px)); bottom: calc(64px + env(safe-area-inset-bottom, 0px)); max-height: min(58%, 480px); box-shadow: 4px 4px 0 var(--ink); }
+    .intro-sheet { padding: 38px 22px 28px; }
+    .intro-tag { flex-direction: column; gap: 4px; font-size: 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .caret::after { animation: none; } }
+</style>
+</head>
+<body>
+<div id="stage" aria-label="Blender Cycles로 렌더한 무이네 모래언덕과 방의 360도 화면"></div>
+<video class="clip" id="clipA" muted playsinline preload="auto"></video>
+<video class="clip" id="clipB" muted playsinline preload="auto"></video>
+
+<div class="ui" id="ui">
+  <nav class="menu" id="menu" aria-label="메뉴">
+    <button class="mbtn" data-key="music"><span>Music</span><small>방 · 턴테이블</small></button>
+    <button class="mbtn" data-key="video"><span>Video</span><small>방 · TV</small></button>
+    <button class="mbtn" data-key="tour"><span>Tour</span><small>모래언덕 · 이정표</small></button>
+    <button class="mbtn" data-key="contact"><span>Letter</span><small>방 · 타자기</small></button>
+    <button class="mbtn" data-key="shop"><span>Shop</span><small>모래언덕 · 가판대</small></button>
+  </nav>
+  <div class="spacer"></div>
+  <aside class="panel" id="panel" hidden aria-labelledby="pTitle">
+    <header class="panel-head"><h2 id="pTitle"></h2><button class="pbtn" id="pClose" aria-label="패널 닫기">Close</button></header>
+    <div class="panel-body" id="pBody"></div>
+    <p class="panel-foot">비공식 컨셉 시안 · AKMU 및 소속사와 무관 · Blender Cycles 렌더 · 3D 에셋: Poly Haven (CC0)</p>
+  </aside>
+  <div class="where" id="where">
+    <span class="where-label" id="whereSub">Mũi Né, Vietnam</span>
+    <span class="where-name" id="whereName">소문의 낙원</span>
+    <button class="travel" id="travel">이찬혁의 방으로 →</button>
+  </div>
+  <button class="mute" id="mute" aria-pressed="false">SOUND ON</button>
+  <div class="hint" id="hint" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<div class="veil" id="veil" aria-hidden="true"><div><p id="veilText"></p><small id="veilSub"></small></div></div>
+
+<div class="intro" id="intro">
+  <div class="intro-tag"><span>Concept draft v3 · Blender Cycles</span><span>비공식 시안 · AKMU 및 소속사와 무관</span></div>
+  <div class="intro-sheet">
+    <h1 id="iTitle"></h1>
+    <p class="en" id="iEn"></p>
+    <p class="line" id="iLine"></p>
+    <div class="intro-foot" id="iFoot"><span class="loading" id="loading">LOADING 0%</span><div class="bar"><i id="barFill"></i></div></div>
+  </div>
+</div>
+
+<div class="cursor is-hidden" id="cursor" aria-hidden="true">
+  <div class="cursor-inner">
+    <svg viewBox="0 0 30 30"><path d="M4 3v21l5.8-5.4 4 8.6 3.8-1.7-4-8.4H21z" fill="#F3ECDC" stroke="#2B2620" stroke-width="1.9" stroke-linejoin="round"/></svg>
+    <span class="cursor-label" id="cursorLabel"></span>
+  </div>
+</div>
+<div class="grain" aria-hidden="true"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const D = reduceMotion ? 0.01 : 1;
+const finePointer = matchMedia("(pointer: fine)").matches;
+if (finePointer) document.body.classList.add("fine");
+const isPhone = () => innerWidth <= 640;
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const wait = (ms) => new Promise((r) => setTimeout(r, reduceMotion ? 0 : ms));
+const C = { paper: "#F3ECDC", ink: "#2B2620", marigold: "#E9B949", rust: "#B4543A", sand: "#D98C5F", sky: "#9CC3DA", dusk: "#6F7FA6", cream: "#FBF7EE" };
+const FONT_TYPE = '"Special Elite", "Pretendard Variable", Pretendard, sans-serif';
+const FONT_UI = '"Courier Prime", "Pretendard Variable", Pretendard, sans-serif';
+const MEDIA = "media/";
+
+/* ================= content ================= */
+const ALBUM = {
+  artist: "AKMU", title: "개화", en: "Flowering", kind: "정규 4집", date: "2026.04.07", total: "37:20",
+  tracks: [["소문의 낙원", "3:38", "선공개"], ["봄 색깔", "3:10"], ["벌레를 내고", "3:40"], ["기쁨, 슬픔, 아름다운 마음", "4:36", "TITLE"], ["햇빛 bless you", "3:51"], ["Tent", "2:30"], ["어린 부부", "2:58"], ["옳은 사람", "3:42"], ["우아한 아침 식사", "3:08"], ["난민들의 축제", "3:05"], ["얼룩", "3:02"]],
+};
+const VIDEOS = [
+  { title: "소문의 낙원", sub: "Music Video 슬롯", len: "3:38", seed: 11 },
+  { title: "기쁨, 슬픔, 아름다운 마음", sub: "Music Video 슬롯", len: "4:36", seed: 12 },
+  { title: "개화", sub: "Album Trailer 슬롯 (예시)", len: "1:00", seed: 13 },
+  { title: "이찬혁의 방에서", sub: "Room Session 슬롯 (예시)", len: "5:00", seed: 14 },
+];
+const RUMORS = ["붉은 모래언덕 한가운데 문이 하나 서 있대.", "그 문을 열면 누군가의 방이 나온대.", "사막에도 꽃이 핀대.", "모래언덕 너머엔 바다가 있대.", "아침마다 누가 모래 위에 식탁을 차려 둔대.", "그 방 주인은 밤새 타자기를 친대.", "저녁마다 축제가 열린대.", "한 번 다녀온 사람은 꼭 다시 간대."];
+const LABELS = { door: "문 열기 → 이찬혁의 방", doorBack: "문 열기 → 소문의 낙원", tour: "TOUR · 이정표", shop: "SHOP · 축제 가판대", tent: "Tent", breakfast: "우아한 아침 식사", rumor: "소문 쪽지", flowers: "개화", boat: "바구니 배 (thúng chai)", music: "MUSIC · 턴테이블", video: "VIDEO · TV", contact: "LETTER · 타자기", rock: "흔들의자", notes: "작업 메모" };
+const TITLES = { music: "Flowering", video: "Video", tour: "Concert", contact: "Letter", shop: "Festival Stall" };
+const HOME = { music: "room", video: "room", contact: "room", tour: "dunes", shop: "dunes" };
+const SPACES = { dunes: { label: "소문의 낙원", sub: "Mũi Né, Vietnam", door: "door" }, room: { label: "이찬혁의 방", sub: "Lee Chan-hyuk's room", door: "doorBack" } };
+
+/* ================= small 2D art for the panels ================= */
+function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function canvasOf(w, h, draw) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); return c; }
+function duneArt(g, w, h, seed) {
+  const r = rng(seed);
+  const sky = g.createLinearGradient(0, 0, 0, h * 0.6); sky.addColorStop(0, "#8FB9D6"); sky.addColorStop(1, "#F2DDC0"); g.fillStyle = sky; g.fillRect(0, 0, w, h);
+  g.fillStyle = "rgba(255,244,214,.95)"; g.beginPath(); g.arc(w * (0.25 + r() * 0.5), h * 0.3, Math.min(w, h) * 0.07, 0, Math.PI * 2); g.fill();
+  [["#E2A177", 0.55], ["#D98C5F", 0.63], ["#C2724A", 0.75]].forEach(([c, y0], i) => { g.fillStyle = c; g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 6) g.lineTo(x, h * y0 + Math.sin(x / w * Math.PI * (1.5 + i) + seed + i * 2) * h * 0.06); g.lineTo(w, h); g.closePath(); g.fill(); });
+}
+function posterArt(v) { return canvasOf(480, 270, (g, w, h) => { duneArt(g, w, h, v.seed); g.fillStyle = "rgba(251,247,238,.92)"; g.fillRect(16, h - 62, w - 32, 46); g.strokeStyle = C.ink; g.lineWidth = 2; g.strokeRect(16, h - 62, w - 32, 46); g.fillStyle = C.ink; g.font = `20px ${FONT_TYPE}`; g.fillText(v.title, 28, h - 32); g.font = `14px ${FONT_UI}`; g.textAlign = "right"; g.fillText("▶ " + v.len, w - 28, h - 32); }); }
+
+/* ================= audio ================= */
+const audio = { ctx: null, master: null, amb: {}, muted: false };
+let current = "dunes";
+function audioInit() {
+  if (audio.ctx) return;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    const ctx = new AC(); audio.ctx = ctx;
+    audio.master = ctx.createGain(); audio.master.gain.value = 0.8; audio.master.connect(ctx.destination);
+    ["dunes", "room"].forEach((k) => { audio.amb[k] = ctx.createGain(); audio.amb[k].gain.value = 0; audio.amb[k].connect(audio.master); });
+    const brown = (secs) => { const len = ctx.sampleRate * secs, b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0); let l = 0; for (let i = 0; i < len; i++) { l = l * 0.985 + (Math.random() * 2 - 1) * 0.015; d[i] = l * 6; } return b; };
+    const loop = (buf, freq, vol, lfoHz, lfoAmt, out) => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = freq; const g = ctx.createGain(); g.gain.value = vol; const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.value = lfoHz; og.gain.value = lfoAmt; o.connect(og); og.connect(g.gain); o.start(); s.connect(f); f.connect(g); g.connect(out); s.start(); };
+    loop(brown(4), 900, 0.32, 0.07, 0.18, audio.amb.dunes);
+    const cb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), cd = cb.getChannelData(0);
+    for (let i = 0; i < cd.length; i++) cd[i] = Math.random() < 0.0008 ? (Math.random() * 2 - 1) * 0.8 : (Math.random() * 2 - 1) * 0.012;
+    const cr = ctx.createBufferSource(); cr.buffer = cb; cr.loop = true; const cg = ctx.createGain(); cg.gain.value = 0.5; cr.connect(cg); cg.connect(audio.amb.room); cr.start();
+    setInterval(ambientTick, 500); setAmbience(current, 2);
+  } catch (e) { audio.ctx = null; }
+}
+function setAmbience(space, dur = 1.2) { if (!audio.ctx) return; const t = audio.ctx.currentTime; ["dunes", "room"].forEach((k) => { const g = audio.amb[k].gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(k === space ? 1 : 0, t + dur); }); }
+function tone(f, d, type = "sine", vol = 0.15, when = 0, slideTo = 0, out) { if (!audio.ctx) return; const ctx = audio.ctx, t = ctx.currentTime + when; const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + d); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0008, t + d); o.connect(g); g.connect(out || audio.master); o.start(t); o.stop(t + d + 0.05); }
+function noise(d, freq = 2000, vol = 0.2, when = 0, q = 1, out) { if (!audio.ctx) return; const ctx = audio.ctx, t = ctx.currentTime + when; const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * d), ctx.sampleRate), ch = buf.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1; const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); src.connect(f); f.connect(g); g.connect(out || audio.master); src.start(t); }
+const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+let tick = 0;
+function ambientTick() { tick++; if (current === "room") { if (tick % 2 === 0) noise(0.015, 5200, 0.05, 0, 3, audio.amb.room); if (Math.random() < 0.1) tone(mtof([60, 64, 67, 71, 72, 76][Math.floor(Math.random() * 6)]), 2.4, "sine", 0.03, 0, 0, audio.amb.room); } }
+const sfx = {
+  key() { noise(0.028, 3200 + Math.random() * 900, 0.16, 0, 0.9); tone(150, 0.035, "square", 0.03); },
+  ding() { tone(2093, 0.6, "sine", 0.06); tone(3136, 0.45, "sine", 0.025); },
+  door() { tone(190, 0.9, "sawtooth", 0.025, 0, 120); noise(0.5, 400, 0.08, 0, 2); },
+  steps() { for (let i = 0; i < 5; i++) noise(0.08, 500, 0.06, 0.6 + i * 0.42, 1.2); },
+  paper() { noise(0.22, 1300, 0.14, 0, 0.6); },
+  clink() { tone(2650, 0.35, "sine", 0.07); tone(3310, 0.3, "sine", 0.05, 0.06); },
+  bloom() { [67, 69, 72, 74, 76, 79].forEach((m, i) => tone(mtof(m), 0.7, "sine", 0.05, i * 0.1)); },
+  creak() { tone(220, 0.5, "sawtooth", 0.02, 0, 160); tone(200, 0.5, "sawtooth", 0.02, 0.6, 150); },
+  tent() { noise(0.6, 600, 0.08, 0, 0.7); },
+  boat() { noise(0.9, 300, 0.1, 0, 0.5); tone(mtof(57), 1.2, "sine", 0.03, 0.2); },
+  ui() { tone(880, 0.05, "sine", 0.04); },
+};
+$("mute").addEventListener("click", () => { audio.muted = !audio.muted; $("mute").setAttribute("aria-pressed", String(audio.muted)); $("mute").textContent = audio.muted ? "SOUND OFF" : "SOUND ON"; if (audio.ctx) { const t = audio.ctx.currentTime, g = audio.master.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(audio.muted ? 0 : 0.8, t + 0.4); } });
+
+/* ================= typewriter text ================= */
+function typeInto(el, text, { speed = 42, sound = true, ding = true } = {}) {
+  const id = (el._typeId = (el._typeId || 0) + 1); el.textContent = ""; el.classList.add("caret");
+  return new Promise((res) => { let i = 0; const step = () => { if (el._typeId !== id) return res(); if (i >= text.length) { el.classList.remove("caret"); if (sound && ding) sfx.ding(); return res(); } el.textContent += text[i]; if (sound && text[i] !== " ") sfx.key(); i++; if (reduceMotion) { el.textContent = text; i = text.length; } setTimeout(step, speed * (0.55 + Math.random() * 0.9)); }; step(); });
+}
+let toastTimer;
+function toast(text, small) { const el = $("toast"); el.innerHTML = "<span></span>" + (small ? `<small>${small}</small>` : ""); clearTimeout(toastTimer); gsap.killTweensOf(el); gsap.fromTo(el, { autoAlpha: 0, y: -6 }, { autoAlpha: 1, y: 0, duration: 0.25 }); typeInto(el.firstChild, text, { speed: 34, ding: false }).then(() => { toastTimer = setTimeout(() => gsap.to(el, { autoAlpha: 0, y: -6, duration: 0.3 }), 2600); }); }
+
+/* ================= renderer + panoramas ================= */
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" }); } catch (e) { renderer = null; }
+const BIG = renderer && renderer.capabilities.maxTextureSize >= 4096 && !(isPhone() || Math.min(innerWidth, innerHeight) < 700) ? 4096 : 2048;
+const R = 40;
+const FACES = { px: [[1, 0, 0], [0, 1, 0]], nx: [[-1, 0, 0], [0, 1, 0]], py: [[0, 1, 0], [0, 0, 1]], ny: [[0, -1, 0], [0, 0, -1]], pz: [[0, 0, 1], [0, 1, 0]], nz: [[0, 0, -1], [0, 1, 0]] };
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 200);
+const texLoader = new THREE.TextureLoader();
+
+const VERT = `varying vec2 vUv; varying vec3 vDir; void main(){ vUv = uv; vDir = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const FRAG = `
+uniform sampler2D map; uniform sampler2D bloomMap; uniform sampler2D mask;
+uniform float uHover; uniform float uActive; uniform float uBloom; uniform float uHasBloom; uniform float uTexel; uniform float uGlow;
+varying vec2 vUv; varying vec3 vDir;
+float isId(vec2 uv, float id){ if (id < 0.5) return 0.0; float v = floor(texture2D(mask, uv).r * 255.0 + 0.5); return step(abs(v - id), 3.0); }
+vec3 outline(vec3 c, float id, float strength){
+  if (id < 0.5) return c;
+  float inside = isId(vUv, id);
+  float s = 0.0;
+  for (int i = 0; i < 12; i++) { float a = float(i) * 0.5236; s += isId(vUv + vec2(cos(a), sin(a)) * uTexel * 2.6, id); }
+  float edge = inside > 0.5 ? 1.0 - s / 12.0 : s / 12.0;
+  edge = smoothstep(0.0, 0.5, edge);
+  c = mix(c, vec3(1.0, 0.78, 0.38), edge * strength);
+  return c + inside * 0.035 * strength;
+}
+void main(){
+  vec4 c = texture2D(map, vUv);
+  if (uHasBloom > 0.5 && uBloom > 0.0) {
+    vec3 d = normalize(vDir);
+    float t = acos(clamp(-d.y, -1.0, 1.0)) / 3.14159;
+    float reveal = 1.0 - smoothstep(uBloom * 0.75 - 0.06, uBloom * 0.75, t);
+    c = mix(c, texture2D(bloomMap, vUv), reveal);
+  }
+  c.rgb = outline(c.rgb, uActive, 0.7 * uGlow);
+  c.rgb = outline(c.rgb, uHover, 0.95 * uGlow);
+  gl_FragColor = c;
+  #include <colorspace_fragment>
+}`;
+
+function makePano(space) {
+  const group = new THREE.Group(); group.visible = false; scene.add(group);
+  const faces = {};
+  for (const [name, [f, u]] of Object.entries(FACES)) {
+    const mat = new THREE.ShaderMaterial({ uniforms: { map: { value: null }, bloomMap: { value: null }, mask: { value: null }, uHover: { value: -1 }, uActive: { value: -1 }, uBloom: { value: 0 }, uHasBloom: { value: 0 }, uTexel: { value: 1 / 1024 }, uGlow: { value: 1 } }, vertexShader: VERT, fragmentShader: FRAG, depthWrite: false });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2 * R, 2 * R), mat);
+    m.position.set(f[0] * R, f[1] * R, f[2] * R); m.up.set(u[0], u[1], u[2]); m.lookAt(0, 0, 0);
+    m.userData = { space, face: name }; group.add(m); faces[name] = m;
+  }
+  return { group, faces, mask: {}, ids: {}, ready: null };
+}
+const panos = { dunes: makePano("dunes"), room: makePano("room") };
+
+const progress = { loaded: 0, total: 1, shown: 0 };
+function loadTex(url, opts = {}) {
+  return new Promise((res, rej) => texLoader.load(url, (t) => {
+    if (opts.color) t.colorSpace = THREE.SRGBColorSpace;
+    if (opts.nearest) { t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; }
+    else { t.anisotropy = renderer.capabilities.getMaxAnisotropy(); t.minFilter = THREE.LinearMipmapLinearFilter; }
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    progress.loaded++; res(t);
+  }, undefined, rej));
+}
+function maskData(tex) { const img = tex.image, c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0); return { w: img.width, h: img.height, d: g.getImageData(0, 0, img.width, img.height).data }; }
+let META;
+function loadSpace(space, countProgress) {
+  const p = panos[space];
+  if (p.ready) return p.ready;
+  const ext = META.ext || "jpg";
+  if (countProgress) progress.total += 12;
+  p.ready = Promise.all(Object.keys(FACES).map(async (name) => {
+    const [map, mask] = await Promise.all([loadTex(`${MEDIA}${space}/${BIG}/${name}.${ext}`, { color: true }), loadTex(`${MEDIA}masks/${space}/${name}.png`, { nearest: true })]);
+    const u = p.faces[name].material.uniforms; u.map.value = map; u.mask.value = mask; u.uTexel.value = 1 / mask.image.width;
+    p.mask[name] = maskData(mask);
+  })).then(() => { p.ids = META.ids[space]; return p; });
+  return p.ready;
+}
+let bloomLoading = null;
+function loadBloom() {
+  if (bloomLoading) return bloomLoading;
+  const ext = META.ext || "jpg";
+  bloomLoading = Promise.all(META.bloomFaces.map(async (name) => { const t = await loadTex(`${MEDIA}dunes_bloom/${BIG}/${name}.${ext}`, { color: true }); const u = panos.dunes.faces[name].material.uniforms; u.bloomMap.value = t; u.uHasBloom.value = 1; }));
+  return bloomLoading;
+}
+
+/* overlays: drifting sand grains, dust in the sunbeam, the live TV screen */
+function particles(n, seed, color, size, spread, yMin, yMax) {
+  const r = rng(seed), g = new THREE.BufferGeometry(), p = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { p[i * 3] = (r() - 0.5) * spread; p[i * 3 + 1] = yMin + r() * (yMax - yMin); p[i * 3 + 2] = (r() - 0.5) * spread; }
+  g.setAttribute("position", new THREE.BufferAttribute(p, 3));
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: 0.55, depthWrite: false, sizeAttenuation: true }));
+  pts.renderOrder = 5; return pts;
+}
+const grains = particles(700, 5, "#F6D9B5", 0.02, 24, -1.6, -0.6);
+const dust = particles(380, 9, "#FFE9C8", 0.012, 5, -1.2, 1.1);
+panos.dunes.group.add(grains); panos.room.group.add(dust);
+const tvC = document.createElement("canvas"); tvC.width = 320; tvC.height = 240; const tg = tvC.getContext("2d"); const tvTex = new THREE.CanvasTexture(tvC); tvTex.colorSpace = THREE.SRGBColorSpace;
+const tv = { playing: -1, start: 0, last: 0, mesh: null };
+
+/* ================= intro ================= */
+let readyResolve; const ready = new Promise((r) => (readyResolve = r));
+(async () => {
+  await wait(300);
+  await typeInto($("iTitle"), "소문의 낙원", { sound: false, speed: 110 });
+  await typeInto($("iEn"), "PARADISE OF RUMORS", { sound: false, speed: 45 });
+  await typeInto($("iLine"), "무이네의 붉은 모래언덕에 문이 하나 서 있다. 그 문은 누군가의 방으로 이어진다고 한다.", { sound: false, speed: 30 });
+  const ok = await ready; const foot = $("iFoot");
+  if (!ok) { foot.innerHTML = '<p class="enter-note">이 브라우저에서는 화면을 그릴 수 없어요. WebGL을 지원하는 브라우저에서 열어 주세요.</p>'; return; }
+  foot.innerHTML = '<button class="enter" id="enter">[ 모래언덕으로 들어가기 ]</button><p class="enter-note">소리를 켜면 바람과 타자기 소리가 들려요.</p>';
+  gsap.from(foot.children, { autoAlpha: 0, y: 6, stagger: 0.12, duration: 0.4 });
+  $("enter").addEventListener("click", enter);
+})();
+const progTimer = setInterval(() => { progress.shown += (progress.loaded / progress.total - progress.shown) * 0.25; const p = Math.min(100, Math.round(progress.shown * 100)); if ($("loading")) $("loading").textContent = `LOADING ${p}%`; if ($("barFill")) $("barFill").style.width = p + "%"; }, 80);
+
+if (!renderer) { readyResolve(false); throw new Error("WebGL unavailable"); }
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NoToneMapping;
+$("stage").appendChild(renderer.domElement);
+function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener("resize", resize); resize();
+
+try {
+  META = await (await fetch(`${MEDIA}meta.json`)).json();
+  progress.total = 0;
+  await Promise.all([loadSpace("dunes", true), document.fonts ? Promise.race([document.fonts.ready, wait(2000)]) : 0]);
+} catch (e) { console.error(e); readyResolve(false); throw e; }
+panos.dunes.group.visible = true;
+{ // TV overlay in the room, built from the screen corners exported by Blender
+  const cam = META.room.camera, q = META.room.tvScreen.map((p) => new THREE.Vector3(p[0] - cam[0], p[1] - cam[1], p[2] - cam[2]));
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(q.flatMap((v) => [v.x, v.y, v.z]), 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2)); g.setIndex([0, 1, 2, 0, 2, 3]);
+  tv.mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: tvTex, transparent: true, opacity: 0, side: THREE.DoubleSide, depthTest: false, toneMapped: false }));
+  tv.mesh.renderOrder = 6; panos.room.group.add(tv.mesh);
+}
+
+/* ================= view / input ================= */
+const view = { yaw: 0, pitch: 0.45, fov: 80 };
+const vel = { x: 0, y: 0 }, dir = new THREE.Vector3();
+function applyView() { const cp = Math.cos(view.pitch); dir.set(Math.sin(view.yaw) * cp, Math.sin(view.pitch), -Math.cos(view.yaw) * cp); camera.lookAt(dir); if (camera.fov !== view.fov) { camera.fov = view.fov; camera.updateProjectionMatrix(); } }
+const toYawPitch = (d) => ({ yaw: Math.atan2(d[0], -d[2]), pitch: Math.atan2(d[1], Math.hypot(d[0], d[2])) });
+const shortest = (from, to) => { let d = to - from; d = Math.atan2(Math.sin(d), Math.cos(d)); return from + d; };
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pick(x, y) {
+  const p = panos[current]; ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(p.group.children.filter((o) => o.userData.face), false)[0]; if (!hit) return null;
+  const m = p.mask[hit.object.userData.face]; if (!m) return null;
+  const px = Math.min(m.w - 1, Math.floor(hit.uv.x * m.w)), py = Math.min(m.h - 1, Math.floor((1 - hit.uv.y) * m.h)); const v = m.d[(py * m.w + px) * 4];
+  if (v < 4) return null;
+  let best = null, bd = 99; for (const [k, b] of Object.entries(p.ids)) { const dd = Math.abs(b - v); if (dd < bd) { bd = dd; best = k; } }
+  return bd <= 3 ? best : null;
+}
+let hoverKey = null, activeKey = null;
+function refreshGlow() { for (const sp of ["dunes", "room"]) { const p = panos[sp], ids = p.ids || {}; Object.values(p.faces).forEach((m) => { m.material.uniforms.uHover.value = hoverKey && sp === current && ids[hoverKey] ? ids[hoverKey] : -1; m.material.uniforms.uActive.value = activeKey && sp === current && ids[activeKey] ? ids[activeKey] : -1; }); } }
+const cursor = $("cursor"), cursorLabel = $("cursorLabel"); let cx = 0, cy = 0;
+addEventListener("pointermove", (e) => { if (e.pointerType !== "mouse") return; cx = e.clientX; cy = e.clientY; cursor.style.transform = `translate3d(${cx - 4}px, ${cy - 3}px, 0) rotate(${((cx / innerWidth) * 2 - 1) * 18}deg)`; cursor.classList.toggle("is-hidden", e.target !== renderer.domElement); });
+let entered = false, transitioning = false, down = null, dragging = false, hoverQueued = false;
+const el = renderer.domElement;
+el.addEventListener("pointerdown", (e) => { if (!entered || transitioning) return; down = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY }; dragging = false; vel.x = vel.y = 0; gsap.killTweensOf(view); try { el.setPointerCapture(e.pointerId); } catch (_) {} cursor.classList.add("is-down"); });
+el.addEventListener("pointermove", (e) => { if (!entered || transitioning) return; if (down) { const dx = e.clientX - down.x, dy = e.clientY - down.y; down.x = e.clientX; down.y = e.clientY; if (!dragging && Math.hypot(e.clientX - down.sx, e.clientY - down.sy) > 6) { dragging = true; dismissHint(); if (activeKey) closePanel(false); } if (dragging) { const k = (view.fov / 75) * 0.0042; view.yaw -= dx * k; view.pitch = clamp(view.pitch + dy * k, -1.35, 1.35); vel.x = -dx * k; vel.y = dy * k; } } else hoverQueued = true; });
+function endPointer(e) { if (!down) return; cursor.classList.remove("is-down"); const wasDrag = dragging; down = null; dragging = false; if (!wasDrag && e.type === "pointerup") { const key = pick(e.clientX, e.clientY); if (key) activate(key); } }
+el.addEventListener("pointerup", endPointer); el.addEventListener("pointercancel", endPointer);
+el.addEventListener("pointerleave", () => { if (!down) { hoverKey = null; refreshGlow(); cursor.classList.remove("is-hot"); } });
+el.addEventListener("wheel", (e) => { if (!entered || transitioning) return; e.preventDefault(); gsap.killTweensOf(view, "fov"); view.fov = clamp(view.fov + e.deltaY * 0.03, 22, 85); }, { passive: false });
+addEventListener("keydown", (e) => { if (e.key === "Escape" && activeKey) closePanel(true); });
+
+const FOV = { music: 30, video: 30, contact: 26, tour: 34, shop: 38 };
+function lookAtKey(key) {
+  const sp = current, c = META[sp].hot[key].center, cam = META[sp].camera;
+  const d = [c[0] - cam[0], c[1] - cam[1], c[2] - cam[2]];
+  let { yaw, pitch } = toYawPitch(d);
+  const fov = FOV[key] || 40, vf = (fov * Math.PI) / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+  if (isPhone()) pitch -= vf * 0.24; else yaw -= hf * 0.16;
+  vel.x = vel.y = 0;
+  return gsap.to(view, { yaw: shortest(view.yaw, yaw), pitch, fov, duration: 1.8 * D, ease: "power3.inOut", overwrite: true });
+}
+function zoomOut() { gsap.to(view, { fov: 70, pitch: current === "room" ? -0.08 : -0.04, duration: 1.3 * D, ease: "power3.inOut", overwrite: true }); }
+
+/* ================= door walks (pre-rendered clips) ================= */
+const clipA = $("clipA"), clipB = $("clipB");
+function videoFov(fov) { const a = innerWidth / innerHeight, v = 16 / 9; return a > v ? (2 * Math.atan(Math.tan((fov * Math.PI) / 360) * v / a) * 180) / Math.PI : fov; }
+function prepClip(v, name) { const src = `${MEDIA}video/${name}.mp4`; if (!v.src.endsWith(src)) { v.src = src; v.load(); } }
+function playThrough(v) { return new Promise((res) => { const done = () => { v.removeEventListener("ended", done); res(); }; v.addEventListener("ended", done); v.currentTime = 0; const p = v.play(); if (p && p.catch) p.catch(() => res("failed")); setTimeout(res, 9000); }); }
+function canPlay(v) { return v.readyState >= 3 ? Promise.resolve(true) : new Promise((res) => { const ok = () => { cleanup(); res(true); }, bad = () => { cleanup(); res(false); }; const cleanup = () => { v.removeEventListener("canplaythrough", ok); v.removeEventListener("error", bad); }; v.addEventListener("canplaythrough", ok); v.addEventListener("error", bad); setTimeout(() => { cleanup(); res(v.readyState >= 2); }, 7000); }); }
+const whereName = $("whereName"), whereSub = $("whereSub"), travelBtn = $("travel");
+function updateWhere() { whereName.textContent = SPACES[current].label; whereSub.textContent = SPACES[current].sub; travelBtn.textContent = current === "dunes" ? "이찬혁의 방으로 →" : "← 모래언덕으로 나가기"; $("hint").textContent = current === "dunes" ? "모래 위에 선 문을 눌러 보세요 · 드래그로 둘러보기" : "타자기, 턴테이블, TV를 눌러 보세요"; }
+const isAvailable = (sp) => (META.available || ["dunes", "room"]).includes(sp);
+function notYet() { toast("방은 아직 렌더 중이에요.", "Blender Cycles 렌더가 끝나면 문이 열립니다"); }
+async function goTo(target) {
+  if (transitioning || target === current) return;
+  if (!isAvailable(target) || !META.clips || !META.clips[current === "dunes" ? "d2r_a" : "r2d_a"]) return notYet();
+  transitioning = true; document.body.classList.add("travelling"); dismissHint(); if (activeKey) closePanel(false); hoverKey = null; refreshGlow(); cursor.classList.remove("is-hot");
+  const [na, nb] = current === "dunes" ? ["d2r_a", "d2r_b"] : ["r2d_a", "r2d_b"];
+  const A = META.clips[na], B = META.clips[nb];
+  prepClip(clipA, na); prepClip(clipB, nb);
+  const targetReady = loadSpace(target);
+  const s = toYawPitch(A.start.dir);
+  await gsap.to(view, { yaw: shortest(view.yaw, s.yaw), pitch: s.pitch, fov: videoFov(A.start.fov), duration: 1.0 * D, ease: "power2.inOut", overwrite: true });
+  sfx.door(); sfx.steps();
+  const okA = await canPlay(clipA);
+  if (okA) { gsap.set(clipA, { autoAlpha: 1 }); await playThrough(clipA); }
+  await gsap.to("#veil", { autoAlpha: 1, duration: 0.4 * D });
+  gsap.set(clipA, { autoAlpha: 0 }); clipA.pause();
+  $("veilSub").textContent = target === "room" ? "Lee Chan-hyuk's room" : "Mũi Né · Paradise of Rumors";
+  const typing = typeInto($("veilText"), target === "room" ? "모래 위의 문을 열자, 누군가의 방이 나왔다." : "문을 닫고, 다시 모래언덕으로.", { speed: 40 });
+  await Promise.all([typing, targetReady]);
+  panos[current].group.visible = false; current = target; panos[current].group.visible = true;
+  if (tv.playing >= 0 && target !== "room") stopVideo();
+  setAmbience(target); updateWhere(); refreshGlow();
+  const okB = await canPlay(clipB);
+  if (okB) { clipB.currentTime = 0; gsap.set(clipB, { autoAlpha: 1 }); }
+  await wait(350);
+  gsap.to("#veil", { autoAlpha: 0, duration: 0.55 * D });
+  if (okB) await playThrough(clipB);
+  const e = toYawPitch(B.end.dir);
+  view.yaw = e.yaw; view.pitch = e.pitch; view.fov = videoFov(B.end.fov); vel.x = vel.y = 0;
+  await gsap.to(clipB, { autoAlpha: 0, duration: 0.45 * D });
+  clipB.pause(); $("veilText").textContent = "";
+  gsap.to(view, { fov: 70, duration: 1.2 * D, ease: "power2.out" });
+  document.body.classList.remove("travelling"); transitioning = false; showHint();
+}
+travelBtn.addEventListener("click", () => { if (entered) { sfx.ui(); goTo(current === "dunes" ? "room" : "dunes"); } });
+
+/* ================= actions ================= */
+async function activate(key, fromMenu) {
+  if (transitioning) return; dismissHint();
+  if (HOME[key] && HOME[key] !== current) { if (!isAvailable(HOME[key]) || !META.clips?.d2r_a) return notYet(); await goTo(HOME[key]); return activate(key, fromMenu); }
+  switch (key) {
+    case "door": return goTo("room");
+    case "doorBack": return goTo("dunes");
+    case "flowers": sfx.bloom(); bloomFlowers(); return toast("모래 위에 꽃이 피었다.", "개화 · Flowering — 정규 4집");
+    case "rumor": sfx.paper(); return toast(RUMORS[Math.floor(Math.random() * RUMORS.length)], "소문 쪽지 · 컨셉 문구");
+    case "tent": sfx.tent(); return toast("텐트 안에 등불이 켜져 있다.", "06  Tent · 2:30");
+    case "breakfast": sfx.clink(); return toast("누군가 모래 위에 아침상을 차려 두었다.", "09  우아한 아침 식사 · 3:08");
+    case "boat": sfx.boat(); return toast("바다로 나가지 못한 둥근 배가 모래에 앉아 있다.", "thúng chai · 무이네 어촌의 바구니 배");
+    case "rock": sfx.creak(); return toast("흔들의자가 아직 조금 흔들리고 있다.", "방 · 컨셉 오브젝트");
+    case "notes": sfx.paper(); return toast("벽에 앨범 메모가 핀으로 꽂혀 있다.", "개화 · 2026.04.07 · 11곡");
+  }
+  if (!fromMenu) (key === "contact" ? sfx.key : key === "tour" || key === "shop" ? sfx.paper : sfx.ui)();
+  if (activeKey === "video" && key !== "video") stopVideo();
+  activeKey = key; refreshGlow(); menuSelect(key); lookAtKey(key); openPanel(key);
+}
+let bloomed = false;
+async function bloomFlowers() {
+  if (bloomed || !META.bloomFaces || !META.bloomFaces.length) return; bloomed = true;
+  await loadBloom();
+  const p = panos.dunes; const st = { v: 0 };
+  gsap.to(st, { v: 1.4, duration: 3.6 * D, ease: "power1.out", onUpdate: () => META.bloomFaces.forEach((n) => (p.faces[n].material.uniforms.uBloom.value = st.v)) });
+}
+
+/* ================= menu + panel ================= */
+const menu = $("menu");
+menu.addEventListener("click", (e) => { const b = e.target.closest(".mbtn"); if (!b || !entered || transitioning) return; sfx.ui(); activate(b.dataset.key, true); });
+function menuSelect(key) {
+  const btns = [...menu.children], first = new Map(btns.map((b) => [b, b.getBoundingClientRect().left]));
+  const idx = btns.findIndex((b) => b.dataset.key === key); if (idx > 0) [...btns.slice(idx), ...btns.slice(0, idx)].forEach((b) => menu.appendChild(b));
+  btns.forEach((b) => { const on = b.dataset.key === key; b.classList.toggle("is-active", on); if (on) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current"); const dx = first.get(b) - b.getBoundingClientRect().left; if (!dx) return; if (dx < 0) gsap.fromTo(b, { x: 50, autoAlpha: 0 }, { x: 0, autoAlpha: 1, duration: 0.7 * D, ease: "power3.out", delay: 0.1 * D }); else gsap.fromTo(b, { x: dx }, { x: 0, duration: 0.8 * D, ease: "power3.inOut" }); });
+}
+function menuClear() { [...menu.children].forEach((b) => { b.classList.remove("is-active"); b.removeAttribute("aria-current"); }); }
+const panel = $("panel"), pBody = $("pBody"), pTitle = $("pTitle");
+$("pClose").addEventListener("click", () => closePanel(true));
+function openPanel(key) { ({ music: renderMusic, video: renderVideo, tour: renderTour, contact: renderLetter, shop: renderShop })[key](); pBody.scrollTop = 0; panel.hidden = false; pTitle.textContent = ""; gsap.fromTo(panel, isPhone() ? { autoAlpha: 0, y: 30, rotate: 0 } : { autoAlpha: 0, x: -24, rotate: -1.5 }, { autoAlpha: 1, x: 0, y: 0, rotate: -0.4, duration: 0.5 * D, delay: 0.5 * D, ease: "power3.out", overwrite: true, onComplete: () => typeInto(pTitle, TITLES[key], { speed: 55 }) }); }
+function closePanel(withZoom) { if (activeKey === "video") stopVideo(); activeKey = null; refreshGlow(); menuClear(); gsap.to(panel, { autoAlpha: 0, duration: 0.25 * D, overwrite: true, onComplete: () => { panel.hidden = true; } }); if (withZoom) zoomOut(); }
+const crop = (face, x, y, w, h, out = 480, outH = out) => canvasOf(out, outH, (g) => { const img = panos.dunes.faces[face]?.material.uniforms.map.value?.image; if (img) { const s = img.width / 4096; g.drawImage(img, x * s, y * s, w * s, h * s, 0, 0, out, outH); } }).toDataURL("image/jpeg", 0.85);
+let cover, goods, posters;
+function art() {
+  if (cover) return;
+  cover = crop("nz", 1300, 1500, 1500, 1500);
+  posters = VIDEOS.map((v, i) => crop(["nz", "px", "nx", "pz"][i], 600 + i * 300, 1500, 2400, 1350, 480, 270));
+  goods = [["개화 LP (예시)", "nz", 1700, 1700], ["무이네 엽서 세트 (예시)", "px", 1200, 1600], ["소문 쪽지 노트 (예시)", "nx", 1400, 1500], ["모래언덕 포스터 (예시)", "pz", 1500, 1600]].map(([name, f, x, y]) => ({ name, img: crop(f, x, y, 1100, 1100, 360) }));
+}
+function renderMusic() { art(); pBody.innerHTML = `<div class="album-top"><img src="${cover}" alt="커버 이미지 자리"><div><p class="kicker">${ALBUM.artist} · ${ALBUM.kind}</p><h3>${ALBUM.title}<br>(${ALBUM.en})</h3><p class="meta">${ALBUM.date} · ${ALBUM.tracks.length}곡 · ${ALBUM.total}</p></div></div><ol class="tracks">${ALBUM.tracks.map(([t, len, tag], i) => `<li><span>${String(i + 1).padStart(2, "0")}</span><span>${t}${tag ? `<span class="tag">${tag}</span>` : ""}</span><span>${len}</span></li>`).join("")}</ol><p class="kicker">Listen on</p><div class="chips">${["Melon", "Spotify", "Apple Music", "YouTube Music"].map((s) => `<button class="pbtn sample">${s}</button>`).join("")}</div><p class="note">커버 이미지는 렌더 장면에서 잘라 온 자리 표시입니다. 공식 커버와 스트리밍 링크로 교체하세요.</p>`; bindSamples(); }
+function renderVideo() { art(); pBody.innerHTML = `<div class="vlist">${VIDEOS.map((v, i) => `<button class="vcard${tv.playing === i ? " is-playing" : ""}" data-i="${i}"><img src="${posters[i]}" alt=""><b>${v.title}</b><span>${tv.playing === i ? "■ 방 안 TV에서 재생 중 · 눌러서 정지" : v.sub + " · " + v.len}</span></button>`).join("")}</div><p class="note">공식 영상 링크를 연결하면 방 안 TV 화면에서 재생됩니다. 지금은 TV에 그림을 대신 띄웁니다.</p>`; pBody.querySelectorAll(".vcard").forEach((b) => b.addEventListener("click", () => { const i = +b.dataset.i; if (tv.playing === i) stopVideo(); else playVideo(i); const st = pBody.scrollTop; renderVideo(); pBody.scrollTop = st; })); }
+function playVideo(i) { tv.playing = i; tv.start = performance.now(); sfx.ui(); gsap.to(tv.mesh.material, { opacity: 1, duration: 0.4 }); if (audio.ctx) { const g = audio.amb.room.gain, t = audio.ctx.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0.25, t + 0.6); } }
+function stopVideo() { if (tv.playing < 0) return; tv.playing = -1; gsap.to(tv.mesh.material, { opacity: 0, duration: 0.4 }); if (current === "room") setAmbience("room", 0.6); }
+function renderTour() { pBody.innerHTML = `<p class="kicker">Concept concert</p><h3 style="margin:0 0 6px;font-family:var(--font-type);font-weight:400;font-size:20px">AKMU CONCERT ‘소문의 낙원’</h3><p class="meta" style="margin-bottom:14px">날짜·장소·예매처는 공식 공지 기준으로 채워 넣는 자리입니다.</p><ul class="rows">${[0, 1, 2].map(() => `<li><time>MM.DD</time><div class="place"><b>도시</b><span>공연장 이름 · 시간</span></div><button class="pbtn sample">예매</button></li>`).join("")}</ul><p class="note">이정표처럼, 공연 정보가 생기면 이 목록이 길어집니다.</p>`; bindSamples(); }
+function renderLetter() { pBody.innerHTML = `<div class="letter"><p class="kicker">To. 이 방의 주인에게</p><dl><dt>문의</dt><dd>contact@example.com</dd><dt>섭외</dt><dd>booking@example.com</dd><dt>팬레터</dt><dd>주소 입력 자리</dd></dl><label for="letterText">편지 쓰기</label><textarea id="letterText" placeholder="여기에 쓰면 타자기 소리가 납니다."></textarea><button class="pbtn" id="sendLetter" style="justify-self:start">봉투에 넣기</button></div><p class="note">연락처는 예시입니다. 시안이라 편지는 실제로 보내지지 않아요.</p>`; const ta = $("letterText"); ta.addEventListener("keydown", (e) => { if (e.key === "Enter") sfx.ding(); else if (e.key.length === 1 || e.key === "Backspace") sfx.key(); }); $("sendLetter").addEventListener("click", () => { sfx.paper(); toast(ta.value.trim() ? "편지를 봉투에 넣었다. (시안이라 발송되지 않음)" : "아직 아무것도 쓰지 않았다."); }); }
+function renderShop() { art(); pBody.innerHTML = `<p class="kicker">난민들의 축제 · 모래 위 가판대</p><div class="goods">${goods.map((g) => `<div><img src="${g.img}" alt=""><b>${g.name}</b><span>₩ —</span></div>`).join("")}</div><a class="store" href="https://example.com" target="_blank" rel="noopener">스토어 열기 ↗</a><p class="note">상품과 가격은 예시입니다. 공식 스토어 주소로 바꿔 연결하세요.</p>`; }
+function bindSamples() { pBody.querySelectorAll(".sample").forEach((b) => b.addEventListener("click", () => toast(`${b.textContent} 링크 자리`, "실제 URL은 공식 채널 기준으로 연결"))); }
+
+let hintShown = false;
+function showHint() { if (!entered) return; const h = $("hint"); h.hidden = false; hintShown = true; gsap.fromTo(h, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.5 }); }
+function dismissHint() { if (!hintShown) return; hintShown = false; gsap.to($("hint"), { autoAlpha: 0, duration: 0.3, onComplete: () => ($("hint").hidden = true) }); }
+
+function enter() {
+  audioInit(); sfx.ding(); document.body.classList.add("entered"); updateWhere();
+  gsap.to("#intro", { autoAlpha: 0, duration: 0.7 * D, onComplete: () => ($("intro").hidden = true) });
+  gsap.fromTo(view, { fov: 80, pitch: 0.45, yaw: 0 }, { fov: 70, pitch: -0.04, duration: 2.8 * D, ease: "power3.inOut", delay: 0.2 * D, onComplete: () => { entered = true; showHint(); } });
+  gsap.from(".mbtn", { autoAlpha: 0, y: isPhone() ? 14 : -14, stagger: 0.07, duration: 0.5 * D, delay: 1.7 * D });
+  gsap.from(["#where", "#mute"], { autoAlpha: 0, duration: 0.5 * D, delay: 2.0 * D });
+  // warm up the other space and the door clips in the background
+  setTimeout(() => { if (isAvailable("room")) loadSpace("room"); if (META.clips && META.clips.d2r_a) { prepClip(clipA, "d2r_a"); prepClip(clipB, "d2r_b"); } }, 1500);
+}
+
+/* ================= TV drawing ================= */
+const secs = (s) => { const [m, x] = s.split(":").map(Number); return m * 60 + x; };
+const fmt = (t) => `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+function drawTV(now) {
+  if (tv.playing < 0 || now - tv.last < 40) return; tv.last = now; const g = tg;
+  const v = VIDEOS[tv.playing], total = secs(v.len), t = ((now - tv.start) / 1000) % total;
+  g.save(); g.translate(-((t * 18) % 60), 0); duneArt(g, 380, 240, v.seed + Math.floor(t / 4)); g.restore();
+  g.fillStyle = "rgba(251,247,238,.9)"; g.fillRect(0, 196, 320, 44); g.fillStyle = C.ink; g.textAlign = "left"; g.font = `16px ${FONT_TYPE}`; g.fillText(v.title, 10, 215); g.font = `11px ${FONT_UI}`; g.fillText(`▶ ${fmt(t)} / ${v.len}`, 10, 232);
+  g.fillStyle = C.rust; g.fillRect(150, 226, 160 * (t / total), 4); g.strokeStyle = C.ink; g.strokeRect(150, 226, 160, 4);
+  g.fillStyle = "rgba(0,0,0,.08)"; for (let y = 0; y < 240; y += 3) g.fillRect(0, y, 320, 1);
+  tvTex.needsUpdate = true;
+}
+
+/* ================= loop ================= */
+let lastT = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  if (entered && !transitioning && !down && (Math.abs(vel.x) > 1e-5 || Math.abs(vel.y) > 1e-5)) { view.yaw += vel.x; view.pitch = clamp(view.pitch + vel.y, -1.35, 1.35); vel.x *= 0.9; vel.y *= 0.9; }
+  if (hoverQueued && finePointer && !transitioning) { hoverQueued = false; const k = pick(cx, cy); if (k !== hoverKey) { hoverKey = k; refreshGlow(); } cursor.classList.toggle("is-hot", !!k); if (k) cursorLabel.textContent = LABELS[k]; }
+  applyView();
+  if (current === "dunes") { const gp = grains.geometry.attributes.position; for (let i = 0; i < gp.count; i++) { let x = gp.getX(i) + dt * 1.4, z = gp.getZ(i) + dt * 0.45; if (x > 12) x -= 24; if (z > 12) z -= 24; gp.setX(i, x); gp.setZ(i, z); } gp.needsUpdate = true; }
+  else { const dp = dust.geometry.attributes.position; for (let i = 0; i < dp.count; i++) { let y = dp.getY(i) + dt * 0.03 * Math.sin(i + now / 2000); dp.setY(i, y); dp.setX(i, dp.getX(i) + Math.sin(now / 3000 + i) * dt * 0.02); } dp.needsUpdate = true; drawTV(now); }
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+applyView(); requestAnimationFrame(loop);
+progress.loaded = progress.total; await wait(300); clearInterval(progTimer);
+if ($("loading")) $("loading").textContent = "LOADING 100%"; if ($("barFill")) $("barFill").style.width = "100%";
+readyResolve(true);
+</script>
+</body>
+</html>
