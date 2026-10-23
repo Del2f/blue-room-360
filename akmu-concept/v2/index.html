@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>소문의 낙원 — 무이네 시안</title>
+<meta name="description" content="AKMU '소문의 낙원' 컨셉 비공식 시안. 무이네 모래언덕에 선 문을 열면 이찬혁의 방으로 넘어갑니다.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  /* Layout: two full-screen photoreal-ish 3D spaces (Mũi Né dunes → room) joined by doors; UI is typed paper slips over the scene. */
+  :root {
+    --paper: #F3ECDC;
+    --ink: #2B2620;
+    --ink-soft: #6B5F50;
+    --sand: #D98C5F;
+    --marigold: #E9B949;
+    --rust: #B4543A;
+    --sheet: rgba(243, 236, 220, 0.88);
+    --font-type: "Special Elite", "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", monospace;
+    --font-ui: "Courier Prime", "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", monospace;
+    color-scheme: light;
+  }
+  html, body { height: 100%; overflow: hidden; margin: 0; }
+  body { background: #E8D2B4; color: var(--ink); font-family: var(--font-ui); font-size: 14px; -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  :focus-visible { outline: 2px dashed var(--rust); outline-offset: 3px; }
+
+  #stage { position: fixed; inset: 0; touch-action: none; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  body.fine #stage { cursor: none; }
+  .grain {
+    position: fixed; inset: 0; z-index: 40; pointer-events: none; opacity: .12; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .17  0 0 0 0 .15  0 0 0 0 .12  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  .ui {
+    position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: space-between;
+    padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px));
+    padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px);
+    pointer-events: none; visibility: hidden;
+  }
+  body.entered .ui { visibility: visible; }
+  .ui > * { pointer-events: auto; }
+  .ui::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(92px + env(safe-area-inset-top, 0px)); background: linear-gradient(to bottom, rgba(243,236,220,.82), rgba(243,236,220,0)); pointer-events: none; }
+  .menu { display: flex; gap: 16px; position: relative; z-index: 3; }
+  .mbtn { flex: 1 1 0; min-width: 0; text-align: left; padding: 20px 0 9px; font-family: var(--font-type); font-size: 16px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1.5px dashed var(--ink); display: flex; align-items: baseline; gap: 8px; }
+  .mbtn small { font-family: var(--font-ui); font-size: 10px; letter-spacing: .04em; color: var(--ink-soft); text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mbtn.is-active { border-bottom-style: solid; border-bottom-width: 3px; padding-bottom: 7.5px; }
+  .mbtn.is-active::before { content: "▸"; color: var(--rust); }
+  .spacer { height: 1px; pointer-events: none; }
+  .where { position: absolute; left: max(20px, env(safe-area-inset-left, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 6px; justify-items: start; }
+  .where-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--paper); text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .where-name { font-family: var(--font-type); font-size: 22px; line-height: 1; background: var(--paper); padding: 4px 8px 2px; border: 1.5px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+  .travel { font-size: 12px; font-weight: 700; padding: 6px 10px; border: 1.5px solid var(--ink); background: var(--marigold); box-shadow: 2px 2px 0 var(--ink); }
+  .travel:hover { background: var(--paper); }
+  .mute { position: absolute; right: max(20px, env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); font-size: 12px; font-weight: 700; letter-spacing: .08em; padding: 8px 11px; border: 1.5px solid var(--ink); background: var(--paper); box-shadow: 2px 2px 0 var(--ink); }
+  .hint { position: absolute; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 7px 12px; background: var(--paper); border: 1.5px dashed var(--ink); font-size: 13px; white-space: nowrap; pointer-events: none; }
+  .toast { position: absolute; left: 50%; top: calc(86px + env(safe-area-inset-top, 0px)); transform: translateX(-50%) rotate(-.6deg); width: max-content; max-width: min(440px, calc(100% - 40px)); padding: 12px 16px 11px; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); font-family: var(--font-type); font-size: 15px; line-height: 1.5; opacity: 0; visibility: hidden; }
+  .toast small { display: block; font-family: var(--font-ui); font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+
+  .panel { position: absolute; left: max(20px, env(safe-area-inset-left, 0px)); top: calc(86px + env(safe-area-inset-top, 0px)); bottom: calc(110px + env(safe-area-inset-bottom, 0px)); width: 340px; display: flex; flex-direction: column; z-index: 2; background: repeating-linear-gradient(to bottom, transparent 0 27px, rgba(43,38,32,.08) 27px 28px), var(--sheet); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1.5px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); }
+  .panel::before { content: ""; position: absolute; top: -9px; left: 50%; width: 70px; height: 18px; transform: translateX(-50%) rotate(-2deg); background: rgba(233,185,73,.75); border: 1px solid rgba(43,38,32,.25); }
+  .panel-head { display: flex; align-items: center; gap: 10px; padding: 16px 12px 10px 16px; border-bottom: 1.5px solid var(--ink); }
+  .panel-head h2 { flex: 1; min-width: 0; margin: 0; font-family: var(--font-type); font-weight: 400; font-size: 24px; line-height: 1.1; letter-spacing: .03em; }
+  .pbtn { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 5px 8px; border: 1.5px solid var(--ink); background: var(--paper); }
+  .pbtn:hover { background: var(--marigold); }
+  .panel-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px; overscroll-behavior: contain; line-height: 1.55; }
+  .panel-foot { margin: 0; padding: 8px 16px 10px; font-size: 10.5px; color: var(--ink-soft); border-top: 1px dashed rgba(43,38,32,.4); }
+  .caret::after { content: "▌"; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .kicker { margin: 0 0 4px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+  .album-top { display: grid; grid-template-columns: 112px 1fr; gap: 14px; align-items: start; margin-bottom: 14px; }
+  .album-top img { width: 112px; aspect-ratio: 1; border: 1.5px solid var(--ink); transform: rotate(-1.5deg); box-shadow: 3px 3px 0 var(--ink); }
+  .album-top h3 { margin: 0 0 6px; font-family: var(--font-type); font-weight: 400; font-size: 19px; line-height: 1.25; text-wrap: balance; }
+  .meta { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .tracks { list-style: none; margin: 0 0 14px; padding: 0; border-top: 1.5px solid var(--ink); }
+  .tracks li { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; padding: 6px 0; border-bottom: 1px dotted rgba(43,38,32,.45); font-size: 13px; }
+  .tracks li span:first-child, .tracks li span:last-child { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+  .tag { display: inline-block; margin-left: 6px; padding: 0 5px; font-size: 10px; font-weight: 700; letter-spacing: .06em; border: 1px solid var(--rust); color: var(--rust); vertical-align: 1px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .note { margin: 12px 0 0; padding: 8px 10px; font-size: 12px; background: rgba(233,185,73,.22); border-left: 3px solid var(--marigold); }
+  .vlist { display: grid; gap: 14px; }
+  .vcard { display: grid; gap: 4px; text-align: left; }
+  .vcard img { width: 100%; aspect-ratio: 16/9; border: 1.5px solid var(--ink); }
+  .vcard:hover img { box-shadow: 3px 3px 0 var(--ink); transform: translate(-1px,-1px); }
+  .vcard b { font-family: var(--font-type); font-weight: 400; font-size: 15px; }
+  .vcard span { font-size: 12px; color: var(--ink-soft); }
+  .vcard.is-playing span { color: var(--rust); font-weight: 700; }
+  .rows { list-style: none; margin: 0; padding: 0; }
+  .rows li { display: grid; grid-template-columns: 70px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px dotted rgba(43,38,32,.45); }
+  .rows li:first-child { border-top: 1.5px solid var(--ink); }
+  .rows time { font-family: var(--font-type); font-size: 17px; }
+  .rows .place { display: grid; font-size: 13px; min-width: 0; }
+  .rows .place span { font-size: 11.5px; color: var(--ink-soft); }
+  .letter { display: grid; gap: 10px; }
+  .letter dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13px; }
+  .letter dt { color: var(--ink-soft); }
+  .letter dd { margin: 0; user-select: all; overflow-wrap: anywhere; }
+  .letter label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .letter textarea { width: 100%; box-sizing: border-box; min-height: 120px; resize: vertical; padding: 10px; font-family: var(--font-type); font-size: 15px; line-height: 1.6; color: var(--ink); background: repeating-linear-gradient(to bottom, #FBF7EE 0 23px, rgba(43,38,32,.12) 23px 24px); border: 1.5px solid var(--ink); }
+  .goods { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .goods div { display: grid; gap: 3px; font-size: 12px; }
+  .goods img { width: 100%; aspect-ratio: 1; border: 1.5px solid var(--ink); }
+  .goods b { font-family: var(--font-type); font-weight: 400; font-size: 14px; }
+  .store { display: inline-block; margin-top: 14px; font-weight: 700; font-size: 12px; letter-spacing: .08em; color: var(--ink); background: var(--marigold); border: 1.5px solid var(--ink); padding: 8px 11px; text-decoration: none; box-shadow: 2px 2px 0 var(--ink); }
+
+  .veil { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; text-align: center; background: var(--paper); opacity: 0; visibility: hidden; padding-inline: 24px; }
+  .veil p { margin: 0; font-family: var(--font-type); font-size: clamp(20px, 3.4vw, 34px); line-height: 1.4; }
+  .veil small { display: block; margin-top: 10px; font-family: var(--font-ui); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+
+  .intro { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; text-align: center; background: radial-gradient(ellipse at 50% 120%, #D98C5F 0%, #E8C9A2 45%, #F3ECDC 80%); padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); padding-block: 24px; }
+  .intro-tag { position: absolute; top: calc(18px + env(safe-area-inset-top, 0px)); left: max(20px, env(safe-area-inset-left, 0px)); right: max(20px, env(safe-area-inset-right, 0px)); display: flex; justify-content: space-between; gap: 12px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .intro-sheet { width: min(520px, 100%); padding: 44px 36px 34px; position: relative; background: repeating-linear-gradient(to bottom, #FBF7EE 0 31px, rgba(43,38,32,.08) 31px 32px); border: 1.5px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); transform: rotate(-.8deg); }
+  .intro-sheet::before { content: ""; position: absolute; top: -10px; left: 50%; width: 90px; height: 20px; transform: translateX(-50%) rotate(3deg); background: rgba(233,185,73,.8); border: 1px solid rgba(43,38,32,.25); }
+  .intro h1 { margin: 0; font-family: var(--font-type); font-weight: 400; font-size: clamp(40px, 8vw, 64px); line-height: 1.05; letter-spacing: .02em; min-height: 1.05em; }
+  .intro .en { margin: 10px 0 0; font-family: var(--font-type); font-size: 15px; letter-spacing: .3em; min-height: 1.5em; }
+  .intro .line { margin: 22px auto 0; max-width: 30ch; font-size: 14px; line-height: 1.8; min-height: 3.6em; }
+  .intro-foot { margin-top: 22px; min-height: 44px; display: grid; justify-items: center; gap: 8px; }
+  .loading { font-size: 12px; letter-spacing: .2em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .bar { width: 220px; height: 6px; border: 1.5px solid var(--ink); background: #FBF7EE; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--sand); }
+  .enter { font-family: var(--font-type); font-size: 17px; letter-spacing: .06em; padding: 10px 18px 8px; border: 1.5px solid var(--ink); background: var(--marigold); box-shadow: 3px 3px 0 var(--ink); transition: transform .2s ease, box-shadow .2s ease; }
+  .enter:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+  .enter-note { margin: 0; font-size: 12px; color: var(--ink-soft); }
+
+  .cursor { position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none; display: none; }
+  body.fine .cursor { display: block; }
+  .cursor.is-hidden { visibility: hidden; }
+  .cursor-inner { display: flex; align-items: flex-start; gap: 4px; transform-origin: 3px 3px; transition: transform .18s ease; }
+  .cursor.is-hot .cursor-inner { transform: scale(1.15); }
+  .cursor.is-down .cursor-inner { transform: scale(.88); }
+  .cursor svg { width: 30px; height: 30px; flex: none; }
+  .cursor-label { margin-top: 20px; padding: 3px 7px 2px; background: var(--paper); border: 1.5px solid var(--ink); font-family: var(--font-type); font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .2s ease; }
+  .cursor.is-hot .cursor-label { opacity: 1; }
+
+  @media (max-width: 640px) {
+    .ui { flex-direction: column-reverse; }
+    .ui::before { top: auto; bottom: 0; height: calc(96px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, rgba(243,236,220,.92), rgba(243,236,220,0)); }
+    .menu { gap: 6px; padding-bottom: 6px; }
+    .mbtn { font-size: 12px; letter-spacing: .02em; justify-content: center; padding: 14px 0 10px; border-bottom: 0; border-top: 1.5px dashed var(--ink); }
+    .mbtn small { display: none; }
+    .mbtn.is-active { border-bottom: 0; padding-bottom: 10px; border-top: 3px solid var(--ink); padding-top: 12.5px; }
+    .mbtn.is-active::before { display: none; }
+    .where { bottom: auto; top: calc(14px + env(safe-area-inset-top, 0px)); }
+    .where-name { font-size: 17px; }
+    .mute { bottom: auto; top: calc(14px + env(safe-area-inset-top, 0px)); }
+    .hint { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); font-size: 12px; }
+    .toast { top: calc(112px + env(safe-area-inset-top, 0px)); font-size: 14px; }
+    .panel { top: auto; width: auto; right: max(20px, env(safe-area-inset-right, 0px)); bottom: calc(64px + env(safe-area-inset-bottom, 0px)); max-height: min(58%, 480px); box-shadow: 4px 4px 0 var(--ink); }
+    .intro-sheet { padding: 38px 22px 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .caret::after { animation: none; } }
+</style>
+</head>
+<body>
+<div id="stage" aria-label="무이네 모래언덕과 방으로 이루어진 3D 공간"></div>
+
+<div class="ui" id="ui">
+  <nav class="menu" id="menu" aria-label="메뉴">
+    <button class="mbtn" data-key="music"><span>Music</span><small>방 · 턴테이블</small></button>
+    <button class="mbtn" data-key="video"><span>Video</span><small>방 · TV</small></button>
+    <button class="mbtn" data-key="tour"><span>Tour</span><small>모래언덕 · 이정표</small></button>
+    <button class="mbtn" data-key="contact"><span>Letter</span><small>방 · 타자기</small></button>
+    <button class="mbtn" data-key="shop"><span>Shop</span><small>모래언덕 · 가판대</small></button>
+  </nav>
+  <div class="spacer"></div>
+  <aside class="panel" id="panel" hidden aria-labelledby="pTitle">
+    <header class="panel-head"><h2 id="pTitle"></h2><button class="pbtn" id="pClose" aria-label="패널 닫기">Close</button></header>
+    <div class="panel-body" id="pBody"></div>
+    <p class="panel-foot">비공식 컨셉 시안 · AKMU 및 소속사와 무관 · 3D 에셋: Poly Haven (CC0)</p>
+  </aside>
+  <div class="where" id="where">
+    <span class="where-label" id="whereSub">Mũi Né, Vietnam</span>
+    <span class="where-name" id="whereName">소문의 낙원</span>
+    <button class="travel" id="travel">이찬혁의 방으로 →</button>
+  </div>
+  <button class="mute" id="mute" aria-pressed="false">SOUND ON</button>
+  <div class="hint" id="hint" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<div class="veil" id="veil" aria-hidden="true"><div><p id="veilText"></p><small id="veilSub"></small></div></div>
+
+<div class="intro" id="intro">
+  <div class="intro-tag"><span>Concept draft v2 · 비공식 시안</span><span>AKMU 및 소속사와 무관</span></div>
+  <div class="intro-sheet">
+    <h1 id="iTitle"></h1>
+    <p class="en" id="iEn"></p>
+    <p class="line" id="iLine"></p>
+    <div class="intro-foot" id="iFoot"><span class="loading" id="loading">LOADING 0%</span><div class="bar"><i id="barFill"></i></div></div>
+  </div>
+</div>
+
+<div class="cursor is-hidden" id="cursor" aria-hidden="true">
+  <div class="cursor-inner">
+    <svg viewBox="0 0 30 30"><path d="M4 3v21l5.8-5.4 4 8.6 3.8-1.7-4-8.4H21z" fill="#F3ECDC" stroke="#2B2620" stroke-width="1.9" stroke-linejoin="round"/></svg>
+    <span class="cursor-label" id="cursorLabel"></span>
+  </div>
+</div>
+<div class="grain" aria-hidden="true"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const D = reduceMotion ? 0.01 : 1;
+const finePointer = matchMedia("(pointer: fine)").matches;
+if (finePointer) document.body.classList.add("fine");
+const isPhone = () => innerWidth <= 640;
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const smooth = (x, a, b) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const wait = (ms) => new Promise((r) => setTimeout(r, reduceMotion ? 0 : ms));
+const C = { paper: "#F3ECDC", ink: "#2B2620", inkSoft: "#6B5F50", marigold: "#E9B949", rust: "#B4543A", sand: "#D98C5F", sea: "#2E6F78", sky: "#9CC3DA", dusk: "#6F7FA6", cream: "#FBF7EE" };
+const FONT_TYPE = '"Special Elite", "Pretendard Variable", Pretendard, sans-serif';
+const FONT_UI = '"Courier Prime", "Pretendard Variable", Pretendard, sans-serif';
+const A = "assets/";
+
+/* ================= content ================= */
+const ALBUM = {
+  artist: "AKMU", title: "개화", en: "Flowering", kind: "정규 4집", date: "2026.04.07", total: "37:20",
+  tracks: [["소문의 낙원", "3:38", "선공개"], ["봄 색깔", "3:10"], ["벌레를 내고", "3:40"], ["기쁨, 슬픔, 아름다운 마음", "4:36", "TITLE"], ["햇빛 bless you", "3:51"], ["Tent", "2:30"], ["어린 부부", "2:58"], ["옳은 사람", "3:42"], ["우아한 아침 식사", "3:08"], ["난민들의 축제", "3:05"], ["얼룩", "3:02"]],
+};
+const VIDEOS = [
+  { title: "소문의 낙원", sub: "Music Video 슬롯", len: "3:38", seed: 11 },
+  { title: "기쁨, 슬픔, 아름다운 마음", sub: "Music Video 슬롯", len: "4:36", seed: 12 },
+  { title: "개화", sub: "Album Trailer 슬롯 (예시)", len: "1:00", seed: 13 },
+  { title: "이찬혁의 방에서", sub: "Room Session 슬롯 (예시)", len: "5:00", seed: 14 },
+];
+const RUMORS = ["붉은 모래언덕 한가운데 문이 하나 서 있대.", "그 문을 열면 누군가의 방이 나온대.", "사막에도 꽃이 핀대.", "모래언덕 너머엔 바다가 있대.", "아침마다 누가 모래 위에 식탁을 차려 둔대.", "그 방 주인은 밤새 타자기를 친대.", "저녁마다 축제가 열린대.", "한 번 다녀온 사람은 꼭 다시 간대."];
+const LABELS = { door: "문 열기 → 이찬혁의 방", doorBack: "문 열기 → 소문의 낙원", tour: "TOUR · 이정표", shop: "SHOP · 축제 가판대", tent: "Tent", breakfast: "우아한 아침 식사", rumor: "소문 쪽지", flowers: "개화", boat: "바구니 배 (thúng chai)", music: "MUSIC · 턴테이블", video: "VIDEO · TV", contact: "LETTER · 타자기", rock: "흔들의자", notes: "작업 메모" };
+const TITLES = { music: "Flowering", video: "Video", tour: "Concert", contact: "Letter", shop: "Festival Stall" };
+const HOME = { music: "room", video: "room", contact: "room", tour: "dunes", shop: "dunes" };
+
+/* ================= small 2D art for panels / decals ================= */
+function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function canvasOf(w, h, draw) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); return c; }
+function duneArt(g, w, h, seed) {
+  const r = rng(seed);
+  const sky = g.createLinearGradient(0, 0, 0, h * 0.6); sky.addColorStop(0, "#8FB9D6"); sky.addColorStop(1, "#F2DDC0"); g.fillStyle = sky; g.fillRect(0, 0, w, h);
+  g.fillStyle = "rgba(255,244,214,.95)"; g.beginPath(); g.arc(w * (0.25 + r() * 0.5), h * 0.3, Math.min(w, h) * 0.07, 0, Math.PI * 2); g.fill();
+  g.fillStyle = C.sea; g.fillRect(0, h * 0.5, w, h * 0.06);
+  [["#E2A177", 0.55], ["#D98C5F", 0.63], ["#C2724A", 0.75]].forEach(([c, y0], i) => { g.fillStyle = c; g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 6) g.lineTo(x, h * y0 + Math.sin(x / w * Math.PI * (1.5 + i) + seed + i * 2) * h * 0.06); g.lineTo(w, h); g.closePath(); g.fill(); });
+}
+function coverArt() { return canvasOf(480, 480, (g, w, h) => { g.fillStyle = C.cream; g.fillRect(0, 0, w, h); g.save(); g.beginPath(); g.rect(36, 36, w - 72, h - 190); g.clip(); duneArt(g, w, h - 120, 4); g.restore(); g.strokeStyle = C.ink; g.lineWidth = 3; g.strokeRect(36, 36, w - 72, h - 190); g.fillStyle = C.ink; g.font = `44px ${FONT_TYPE}`; g.fillText("개화", 36, h - 92); g.font = `20px ${FONT_TYPE}`; g.fillText("FLOWERING · AKMU", 36, h - 60); g.fillStyle = C.rust; g.font = `15px ${FONT_UI}`; g.fillText("[ 공식 커버 이미지 자리 ]", 36, h - 32); }); }
+function posterArt(v) { return canvasOf(480, 270, (g, w, h) => { duneArt(g, w, h, v.seed); g.fillStyle = "rgba(251,247,238,.92)"; g.fillRect(16, h - 62, w - 32, 46); g.strokeStyle = C.ink; g.lineWidth = 2; g.strokeRect(16, h - 62, w - 32, 46); g.fillStyle = C.ink; g.font = `20px ${FONT_TYPE}`; g.fillText(v.title, 28, h - 32); g.font = `14px ${FONT_UI}`; g.textAlign = "right"; g.fillText("▶ " + v.len, w - 28, h - 32); }); }
+function goodsArt(seed, label) { return canvasOf(360, 360, (g, w, h) => { g.fillStyle = C.cream; g.fillRect(0, 0, w, h); g.save(); g.beginPath(); g.rect(30, 30, w - 60, h - 110); g.clip(); duneArt(g, w, h - 80, seed); g.restore(); g.strokeStyle = C.ink; g.lineWidth = 3; g.strokeRect(30, 30, w - 60, h - 110); g.fillStyle = C.ink; g.font = `22px ${FONT_TYPE}`; g.fillText(label, 30, h - 42); }); }
+
+/* ================= audio ================= */
+const audio = { ctx: null, master: null, amb: {}, muted: false };
+let current = "dunes";
+function audioInit() {
+  if (audio.ctx) return;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    const ctx = new AC(); audio.ctx = ctx;
+    audio.master = ctx.createGain(); audio.master.gain.value = 0.8; audio.master.connect(ctx.destination);
+    ["dunes", "room"].forEach((k) => { audio.amb[k] = ctx.createGain(); audio.amb[k].gain.value = 0; audio.amb[k].connect(audio.master); });
+    const brown = (secs) => { const len = ctx.sampleRate * secs, b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0); let l = 0; for (let i = 0; i < len; i++) { l = l * 0.985 + (Math.random() * 2 - 1) * 0.015; d[i] = l * 6; } return b; };
+    const loop = (buf, freq, vol, lfoHz, lfoAmt, out) => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = freq; const g = ctx.createGain(); g.gain.value = vol; const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.value = lfoHz; og.gain.value = lfoAmt; o.connect(og); og.connect(g.gain); o.start(); s.connect(f); f.connect(g); g.connect(out); s.start(); };
+    loop(brown(4), 900, 0.3, 0.07, 0.18, audio.amb.dunes);      // desert wind
+    loop(brown(5), 380, 0.35, 0.11, 0.3, audio.amb.dunes);      // distant sea swell
+    const cb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), cd = cb.getChannelData(0);
+    for (let i = 0; i < cd.length; i++) cd[i] = Math.random() < 0.0008 ? (Math.random() * 2 - 1) * 0.8 : (Math.random() * 2 - 1) * 0.012;
+    const cr = ctx.createBufferSource(); cr.buffer = cb; cr.loop = true; const cg = ctx.createGain(); cg.gain.value = 0.5; cr.connect(cg); cg.connect(audio.amb.room); cr.start();
+    setInterval(ambientTick, 500); setAmbience(current, 2);
+  } catch (e) { audio.ctx = null; }
+}
+function setAmbience(space, dur = 1.2) { if (!audio.ctx) return; const t = audio.ctx.currentTime; ["dunes", "room"].forEach((k) => { const g = audio.amb[k].gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(k === space ? 1 : 0, t + dur); }); }
+function tone(f, d, type = "sine", vol = 0.15, when = 0, slideTo = 0, out) { if (!audio.ctx) return; const ctx = audio.ctx, t = ctx.currentTime + when; const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + d); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0008, t + d); o.connect(g); g.connect(out || audio.master); o.start(t); o.stop(t + d + 0.05); }
+function noise(d, freq = 2000, vol = 0.2, when = 0, q = 1, out) { if (!audio.ctx) return; const ctx = audio.ctx, t = ctx.currentTime + when; const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * d), ctx.sampleRate), ch = buf.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1; const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); src.connect(f); f.connect(g); g.connect(out || audio.master); src.start(t); }
+const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+let tick = 0;
+function ambientTick() {
+  tick++;
+  if (current === "room") { if (tick % 2 === 0) noise(0.015, 5200, 0.05, 0, 3, audio.amb.room); if (Math.random() < 0.1) tone(mtof([60, 64, 67, 71, 72, 76][Math.floor(Math.random() * 6)]), 2.4, "sine", 0.03, 0, 0, audio.amb.room); }
+}
+const sfx = {
+  key() { noise(0.028, 3200 + Math.random() * 900, 0.16, 0, 0.9); tone(150, 0.035, "square", 0.03); },
+  ding() { tone(2093, 0.6, "sine", 0.06); tone(3136, 0.45, "sine", 0.025); },
+  door() { tone(190, 0.9, "sawtooth", 0.025, 0, 120); noise(0.5, 400, 0.08, 0, 2); },
+  paper() { noise(0.22, 1300, 0.14, 0, 0.6); },
+  clink() { tone(2650, 0.35, "sine", 0.07); tone(3310, 0.3, "sine", 0.05, 0.06); },
+  bloom() { [67, 69, 72, 74, 76, 79].forEach((m, i) => tone(mtof(m), 0.7, "sine", 0.05, i * 0.08)); },
+  creak() { tone(220, 0.5, "sawtooth", 0.02, 0, 160); tone(200, 0.5, "sawtooth", 0.02, 0.6, 150); },
+  tent() { noise(0.6, 600, 0.08, 0, 0.7); },
+  boat() { noise(0.9, 300, 0.1, 0, 0.5); tone(mtof(57), 1.2, "sine", 0.03, 0.2); },
+  ui() { tone(880, 0.05, "sine", 0.04); },
+};
+$("mute").addEventListener("click", () => {
+  audio.muted = !audio.muted; $("mute").setAttribute("aria-pressed", String(audio.muted)); $("mute").textContent = audio.muted ? "SOUND OFF" : "SOUND ON";
+  if (audio.ctx) { const t = audio.ctx.currentTime, g = audio.master.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(audio.muted ? 0 : 0.8, t + 0.4); }
+});
+
+/* ================= typewriter text ================= */
+function typeInto(el, text, { speed = 42, sound = true, ding = true } = {}) {
+  const id = (el._typeId = (el._typeId || 0) + 1); el.textContent = ""; el.classList.add("caret");
+  return new Promise((res) => {
+    let i = 0;
+    const step = () => {
+      if (el._typeId !== id) return res();
+      if (i >= text.length) { el.classList.remove("caret"); if (sound && ding) sfx.ding(); return res(); }
+      el.textContent += text[i]; if (sound && text[i] !== " ") sfx.key(); i++;
+      if (reduceMotion) { el.textContent = text; i = text.length; }
+      setTimeout(step, speed * (0.55 + Math.random() * 0.9));
+    };
+    step();
+  });
+}
+let toastTimer;
+function toast(text, small) {
+  const el = $("toast"); el.innerHTML = "<span></span>" + (small ? `<small>${small}</small>` : "");
+  clearTimeout(toastTimer); gsap.killTweensOf(el); gsap.fromTo(el, { autoAlpha: 0, y: -6 }, { autoAlpha: 1, y: 0, duration: 0.25 });
+  typeInto(el.firstChild, text, { speed: 34, ding: false }).then(() => { toastTimer = setTimeout(() => gsap.to(el, { autoAlpha: 0, y: -6, duration: 0.3 }), 2600); });
+}
+
+/* ================= intro + real loading progress ================= */
+const progress = { shown: 0, target: 0 };
+let readyResolve; const ready = new Promise((r) => (readyResolve = r));
+(async () => {
+  await wait(300);
+  await typeInto($("iTitle"), "소문의 낙원", { sound: false, speed: 110 });
+  await typeInto($("iEn"), "PARADISE OF RUMORS", { sound: false, speed: 45 });
+  await typeInto($("iLine"), "무이네의 붉은 모래언덕에 문이 하나 서 있다. 그 문은 누군가의 방으로 이어진다고 한다.", { sound: false, speed: 30 });
+  const ok = await ready; const foot = $("iFoot");
+  if (!ok) { foot.innerHTML = '<p class="enter-note">이 브라우저에서는 3D 화면을 그릴 수 없어요. WebGL을 지원하는 브라우저에서 열어 주세요.</p>'; return; }
+  foot.innerHTML = '<button class="enter" id="enter">[ 모래언덕으로 들어가기 ]</button><p class="enter-note">소리를 켜면 바람과 파도, 타자기 소리가 들려요.</p>';
+  gsap.from(foot.children, { autoAlpha: 0, y: 6, stagger: 0.12, duration: 0.4 });
+  $("enter").addEventListener("click", enter);
+})();
+const progTimer = setInterval(() => {
+  progress.shown += (progress.target - progress.shown) * 0.2;
+  const p = Math.min(100, Math.round(progress.shown * 100));
+  $("loading") && ($("loading").textContent = `LOADING ${p}%`); $("barFill") && ($("barFill").style.width = p + "%");
+}, 80);
+
+/* ================= renderer ================= */
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" }); }
+catch (e) { readyResolve(false); throw e; }
+const DPR = Math.min(window.devicePixelRatio || 1, isPhone() ? 1.5 : 1.75);
+renderer.setPixelRatio(DPR);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const stage = $("stage"); stage.appendChild(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 900);
+const pmrem = new THREE.PMREMGenerator(renderer);
+
+const manager = new THREE.LoadingManager();
+manager.onProgress = (url, loaded, total) => { progress.target = loaded / total; };
+const gltfLoader = new GLTFLoader(manager);
+const texLoader = new THREE.TextureLoader(manager);
+const rgbe = new RGBELoader(manager).setDataType(THREE.FloatType);
+
+const models = {};
+const MODEL_IDS = ["wooden_table_02", "Television_01", "wooden_bookshelf_worn", "vintage_day_bed", "desk_lamp_arm_01", "potted_plant_02", "Rockingchair_01", "hanging_picture_frame_01", "vintage_cabinet_01", "wooden_crate_02", "tea_set_01", "round_wooden_table_01", "painted_wooden_chair_01", "flower_gazania", "flower_ursinia", "wild_rooibos_bush"];
+const loadModel = (id) => gltfLoader.loadAsync(`${A}models/${id}/${id}.gltf`).then((g) => { g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); models[id] = g.scene; });
+const texCache = {};
+function tex(name, file, srgb, repeat) {
+  const key = `${name}/${file}/${repeat}`;
+  if (!texCache[key]) { const t = texLoader.load(`${A}textures/${name}/${file}.jpg`); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); t.anisotropy = renderer.capabilities.getMaxAnisotropy(); if (srgb) t.colorSpace = THREE.SRGBColorSpace; texCache[key] = t; }
+  return texCache[key];
+}
+function pbr(name, repeat, opts = {}) {
+  const arm = tex(name, "arm", false, repeat);
+  return new THREE.MeshStandardMaterial(Object.assign({ map: tex(name, "diff", true, repeat), normalMap: tex(name, "nor", false, repeat), aoMap: arm, roughnessMap: arm }, opts));
+}
+function place(id, parent, { x = 0, y = 0, z = 0, ry = 0, s = 1 } = {}) {
+  const o = models[id].clone(true); o.scale.setScalar(s); o.rotation.y = ry; o.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(o), c = b.getCenter(new THREE.Vector3());
+  o.position.set(x - c.x, y - b.min.y, z - c.z); parent.add(o); o.updateMatrixWorld(true); return o;
+}
+const topOf = (o) => new THREE.Box3().setFromObject(o).max.y;
+
+/* ================= interactive registry ================= */
+const hot = {};
+const spaces = {
+  dunes: { scene: new THREE.Scene(), solids: [], label: "소문의 낙원", sub: "Mũi Né, Vietnam", door: "door" },
+  room: { scene: new THREE.Scene(), solids: [], label: "이찬혁의 방", sub: "Lee Chan-hyuk's room", door: "doorBack" },
+};
+function register(space, key, group) { group.userData.key = key; if (!group.parent) spaces[space].scene.add(group); hot[key] = { group, space }; }
+
+/* ================= load everything ================= */
+let skyHdr;
+try {
+  await Promise.all([...MODEL_IDS.map(loadModel), rgbe.loadAsync(`${A}hdri/sky_2k.hdr`).then((t) => (skyHdr = t)), document.fonts ? Promise.race([Promise.all([[`20px "Special Elite"`, "A"], [`700 16px "Courier Prime"`, "A"], [`16px "Pretendard Variable"`, "소문의 낙원 개화 이찬혁의 방 작업 메모 선공개 아름다운 마음 무이네 엽서"]].map(([f, t]) => document.fonts.load(f, t))), wait(2000)]) : 0]);
+} catch (e) { console.error(e); readyResolve(false); throw e; }
+
+/* ================================================================
+   SPACE 1 — 소문의 낙원 · 무이네 붉은 모래언덕
+   ================================================================ */
+const S = spaces.dunes.scene;
+skyHdr.mapping = THREE.EquirectangularReflectionMapping;
+S.background = skyHdr; S.backgroundIntensity = 0.9;
+S.environment = pmrem.fromEquirectangular(skyHdr).texture;
+
+// find the sun and the horizon colour in the HDR so light and haze match the sky
+const sunDir = new THREE.Vector3(0.5, 0.4, -0.6).normalize();
+const haze = new THREE.Color("#E9D2B5");
+{
+  const { data, width: w, height: h } = skyHdr.image; let best = 0, bi = 0;
+  for (let i = 0; i < w * h; i++) { const l = data[i * 4] + data[i * 4 + 1] + data[i * 4 + 2]; if (l > best) { best = l; bi = i; } }
+  const x = bi % w, y = Math.floor(bi / w), u = x / w, v = 1 - y / h;
+  const el = (v - 0.5) * Math.PI, az = (u - 0.5) * Math.PI * 2;
+  sunDir.set(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az)).normalize();
+  if (sunDir.y < 0.12) sunDir.y = 0.12;
+  sunDir.normalize();
+  let r = 0, g = 0, b = 0, n = 0; const row = Math.floor(h * 0.47);
+  for (let xx = 0; xx < w; xx += 4) { const i = (row * w + xx) * 4; r += data[i]; g += data[i + 1]; b += data[i + 2]; n++; }
+  haze.setRGB(Math.min(r / n, 1.5), Math.min(g / n, 1.5), Math.min(b / n, 1.5)).lerp(new THREE.Color(0.95, 0.78, 0.6), 0.25);
+}
+S.fog = new THREE.Fog(haze, 70, 330);
+const sun = new THREE.DirectionalLight(0xffdcb0, 3.2);
+sun.position.copy(sunDir).multiplyScalar(60); sun.castShadow = true;
+sun.shadow.mapSize.set(isPhone() ? 1024 : 2048, isPhone() ? 1024 : 2048);
+Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 160 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+S.add(sun, sun.target);
+S.add(new THREE.HemisphereLight(0xcfe3f0, 0xc98b5e, 0.35));
+
+// dunes
+const duneH = (x, z) => {
+  const d = Math.hypot(x, z);
+  const crest = Math.pow(1 - Math.abs(Math.sin(x * 0.026 + z * 0.011 + Math.sin(z * 0.03) * 1.4)), 2.4);
+  let h = crest * 8 + Math.sin(x * 0.035 + Math.sin(z * 0.02) * 2.2) * 1.5 + Math.sin((x * 0.6 + z) * 0.018 + 1.3) * 2.4 + 3;
+  h *= smooth(d, 12, 60);
+  h += 0.3 * Math.sin(x * 0.23 + z * 0.1) * Math.sin(z * 0.19) * smooth(d, 3, 14);
+  const sea = smooth(-x, 80, 140); return h * (1 - sea) - sea * 3;
+};
+{
+  const geo = new THREE.PlaneGeometry(700, 700, 300, 300); geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position, cols = new Float32Array(pos.count * 3), c = new THREE.Color();
+  const red = new THREE.Color("#FFE0C4"), pale = new THREE.Color("#FFF3E4"), deep = new THREE.Color("#E9B892");
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), y = duneH(x, z); pos.setY(i, y);
+    c.copy(red).lerp(pale, clamp((y - 4) / 8, 0, 0.7)).lerp(deep, clamp(-y * 0.1 + 0.15, 0, 0.35));
+    cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute("color", new THREE.BufferAttribute(cols, 3)); geo.computeVertexNormals();
+  const sandMat = pbr("red_sand", [140, 140], { vertexColors: true, color: "#FFD2A8", normalScale: new THREE.Vector2(0.9, 0.9), envMapIntensity: 0.7 });
+  // lift the deep red of the texture toward Mũi Né's orange-ochre
+  sandMat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace("#include <map_fragment>", "#include <map_fragment>\n diffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.33))) * vec3(1.3, 0.96, 0.64), 0.6) * 1.25;"); };
+  const ground = new THREE.Mesh(geo, sandMat); ground.receiveShadow = true; ground.castShadow = true; S.add(ground);
+}
+// sea on the horizon (west)
+{
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshStandardMaterial({ color: C.sea, roughness: 0.12, metalness: 0.05, envMapIntensity: 1.1 }));
+  sea.rotation.x = -Math.PI / 2; sea.position.y = -1.6; S.add(sea);
+}
+// drifting sand grains
+const grains = (() => {
+  const n = 900, g = new THREE.BufferGeometry(), p = new Float32Array(n * 3), r = rng(5);
+  for (let i = 0; i < n; i++) { const a = r() * Math.PI * 2, d = 2 + r() * 26, x = Math.cos(a) * d, z = Math.sin(a) * d; p[i * 3] = x; p[i * 3 + 1] = duneH(x, z) + r() * 1.1; p[i * 3 + 2] = z; }
+  g.setAttribute("position", new THREE.BufferAttribute(p, 3));
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: "#F6D9B5", size: 0.025, transparent: true, opacity: 0.55, depthWrite: false }));
+  S.add(pts); return pts;
+})();
+
+// instanced copies of a glTF model (used for flowers and shrubs)
+function instanced(id, list) {
+  const root = models[id]; root.updateMatrixWorld(true);
+  const group = new THREE.Group(), parts = [];
+  root.traverse((o) => { if (o.isMesh) { const im = new THREE.InstancedMesh(o.geometry, o.material, list.length); im.castShadow = true; im.receiveShadow = true; parts.push({ im, local: o.matrixWorld.clone() }); group.add(im); } });
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), t = new THREE.Matrix4();
+  group.userData.update = (k = () => 1) => {
+    list.forEach((it, i) => { const f = Math.max(0.0001, k(it)); m.compose(p.set(it.x, it.y, it.z), q.setFromAxisAngle(up, it.ry), s.setScalar(it.s * f)); parts.forEach(({ im, local }) => { t.multiplyMatrices(m, local); im.setMatrixAt(i, t); }); });
+    parts.forEach(({ im }) => { im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); });
+  };
+  group.userData.update();
+  return group;
+}
+const scatter = (n, seed, rMin, rMax, sMin, sMax, avoid = []) => {
+  const r = rng(seed), out = [];
+  while (out.length < n) {
+    const a = r() * Math.PI * 2, d = rMin + Math.pow(r(), 0.8) * (rMax - rMin), x = Math.cos(a) * d, z = Math.sin(a) * d;
+    if (avoid.some(([ax, az, ar]) => Math.hypot(x - ax, z - az) < ar)) continue;
+    out.push({ x, z, y: duneH(x, z) - 0.02, ry: r() * Math.PI * 2, s: sMin + r() * (sMax - sMin), d });
+  }
+  return out;
+};
+const DOOR_POS = new THREE.Vector3(-1.4, 0, -7.6);
+const SIGN_POS = new THREE.Vector3(2.8, 0, -6.4), STALL_POS = new THREE.Vector3(-7.2, 0, -3.6), TENT_POS = new THREE.Vector3(10, 0, -11), BF_POS = new THREE.Vector3(-4.6, 0, 4.6), BOAT_POS = new THREE.Vector3(6.6, 0, 4.4);
+const AVOID = [[0, 0, 1.6], [DOOR_POS.x, DOOR_POS.z, 1.6], [SIGN_POS.x, SIGN_POS.z, 1], [STALL_POS.x, STALL_POS.z, 2.2], [TENT_POS.x, TENT_POS.z, 3], [BF_POS.x, BF_POS.z, 1.6], [BOAT_POS.x, BOAT_POS.z, 1.6]];
+S.add(instanced("wild_rooibos_bush", scatter(40, 7, 4, 45, 0.7, 1.6, AVOID)));
+// 개화: desert flowers that bloom from buds when clicked
+const flowerSpots = [...scatter(70, 21, 1.8, 12, 0.8, 1.3, AVOID)];
+const gaz = flowerSpots.filter((_, i) => i % 2 === 0), urs = flowerSpots.filter((_, i) => i % 2 === 1);
+flowerSpots.forEach((f) => (f.delay = f.d * 0.08 + Math.random() * 0.3));
+const bloom = { t0: -1, base: 0.18 };
+const flowers = new THREE.Group(); const fGaz = instanced("flower_gazania", gaz), fUrs = instanced("flower_ursinia", urs); flowers.add(fGaz, fUrs);
+const bloomK = (now) => (f) => bloom.t0 < 0 ? bloom.base : clamp(bloom.base + ((now - bloom.t0) / 1000 - f.delay) * 1.4, bloom.base, 1);
+fGaz.userData.update(bloomK(0)); fUrs.userData.update(bloomK(0));
+register("dunes", "flowers", flowers);
+
+// --- door standing in the sand ---
+const doorFrameMat = pbr("weathered_planks", [0.5, 2]);
+const doorLeafMat = pbr("blue_painted_planks", [1, 2]);
+const brass = new THREE.MeshStandardMaterial({ color: "#C9A34A", metalness: 1, roughness: 0.28 });
+function makeDoor(viewTexture) {
+  const g = new THREE.Group();
+  const post = (x) => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.13, 2.3, 0.16), doorFrameMat); m.position.set(x, 1.15, 0); m.castShadow = m.receiveShadow = true; g.add(m); };
+  post(-0.565); post(0.565);
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(1.26, 0.15, 0.18), doorFrameMat); lintel.position.set(0, 2.33, 0); lintel.castShadow = true; g.add(lintel);
+  const sill = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.06, 0.36), doorFrameMat); sill.position.y = 0.03; sill.receiveShadow = true; g.add(sill);
+  const view = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2.2), new THREE.MeshBasicMaterial({ map: viewTexture, fog: false, color: 0xb8b8b8 })); view.position.set(0, 1.14, -0.02); g.add(view);
+  const hinge = new THREE.Group(); hinge.position.set(-0.5, 0, 0.05); g.add(hinge);
+  const leaf = new THREE.Mesh(new RoundedBoxGeometry(1.0, 2.2, 0.06, 2, 0.01), doorLeafMat); leaf.position.set(0.5, 1.13, 0); leaf.castShadow = leaf.receiveShadow = true; hinge.add(leaf);
+  [[1.55, 0.72], [0.6, 0.62]].forEach(([y, h]) => { const p = new THREE.Mesh(new THREE.BoxGeometry(0.72, h, 0.015), doorLeafMat); p.position.set(0.5, y, 0.035); p.castShadow = true; hinge.add(p); });
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.035, 20, 14), brass); knob.position.set(0.9, 1.06, 0.07); hinge.add(knob);
+  g.userData.hinge = hinge; hinge.rotation.y = -0.4; g.userData.view = view;
+  return g;
+}
+const door = makeDoor(null);
+door.position.set(DOOR_POS.x, duneH(DOOR_POS.x, DOOR_POS.z) - 0.04, DOOR_POS.z); door.rotation.y = Math.atan2(-DOOR_POS.x, -DOOR_POS.z);
+register("dunes", "door", door);
+const doorGlow = new THREE.PointLight(0xffc98a, 2.2, 5, 2); doorGlow.position.set(DOOR_POS.x, 1.2, DOOR_POS.z + 0.6); S.add(doorGlow);
+
+// --- signpost (TOUR) ---
+function textPlate(w, h, txt, size = 40) {
+  const c = canvasOf(512, Math.round(512 * h / w), (g, W, H) => { g.fillStyle = "rgba(251,247,238,.92)"; g.fillRect(0, 0, W, H); g.fillStyle = C.ink; g.font = `${size}px ${FONT_TYPE}`; g.textBaseline = "middle"; g.fillText(txt, 22, H / 2 + 3); });
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, roughness: 0.85 }));
+}
+const sign = new THREE.Group(); {
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 2.7, 12), doorFrameMat); pole.position.y = 1.35; pole.castShadow = true; sign.add(pole);
+  [["CONCERT  소문의 낙원 →", 2.3, 0.22], ["이찬혁의 방  ←", 1.86, -0.25], ["바다까지  1.2 km", 1.42, 0.12]].forEach(([txt, y, ry]) => {
+    const b = new THREE.Group(); const board = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.3, 0.045), doorFrameMat); board.castShadow = board.receiveShadow = true; b.add(board);
+    const plate = textPlate(1.18, 0.2, txt); plate.position.z = 0.024; b.add(plate); b.position.set(0.52, y, 0); b.rotation.y = ry; sign.add(b);
+  });
+}
+sign.position.set(SIGN_POS.x, duneH(SIGN_POS.x, SIGN_POS.z) - 0.05, SIGN_POS.z); sign.rotation.y = Math.atan2(-SIGN_POS.x, -SIGN_POS.z) - 0.3;
+register("dunes", "tour", sign);
+
+// --- festival stall (SHOP) ---
+const linen = pbr("rough_linen", [2, 2], { color: "#F1E6D2" });
+const stripeTex = new THREE.CanvasTexture(canvasOf(256, 64, (g, w, h) => { for (let x = 0; x < w; x += 32) { g.fillStyle = (x / 32) % 2 ? "#F1E6D2" : "#B4543A"; g.fillRect(x, 0, 32, h); } })); stripeTex.colorSpace = THREE.SRGBColorSpace; stripeTex.wrapS = THREE.RepeatWrapping; stripeTex.repeat.set(3, 1);
+const awningMat = new THREE.MeshStandardMaterial({ map: stripeTex, normalMap: tex("rough_linen", "nor", false, [2, 2]), roughness: 0.9, side: THREE.DoubleSide });
+const stall = new THREE.Group(); {
+  place("wooden_crate_02", stall, { x: -0.45, z: 0, ry: Math.PI / 2 }); place("wooden_crate_02", stall, { x: 0.65, z: 0, ry: Math.PI / 2 });
+  const crateTop = topOf(stall);
+  place("wooden_crate_02", stall, { x: 0.65, y: crateTop, z: 0, ry: Math.PI / 2, s: 0.8 });
+  [-1.2, 1.2].forEach((x) => [-0.4, 0.5].forEach((z) => { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 2.3, 8), doorFrameMat); p.position.set(x, 1.15, z); p.castShadow = true; stall.add(p); }));
+  const awn = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 1.25, 12, 4), awningMat); awn.rotation.x = -Math.PI / 2 + 0.22; awn.position.set(0, 2.25, 0.05); awn.castShadow = true;
+  const ap = awn.geometry.attributes.position; for (let i = 0; i < ap.count; i++) ap.setZ(i, Math.sin(ap.getX(i) * 2.2) * 0.03 - Math.abs(ap.getY(i)) * 0.05); awn.geometry.computeVertexNormals(); stall.add(awn);
+  const r = rng(3); [[-0.75, C.dusk], [-0.35, C.marigold], [0.05, C.rust], [-0.55, C.sand]].forEach(([x, col], i) => {
+    const lp = new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.31, 0.012), new THREE.MeshStandardMaterial({ color: col, roughness: 0.6 })); lp.position.set(x + r() * 0.05, crateTop + 0.16, -0.05 + i * 0.03); lp.rotation.x = -0.28; lp.castShadow = true; stall.add(lp);
+  });
+}
+stall.position.set(STALL_POS.x, duneH(STALL_POS.x, STALL_POS.z) - 0.03, STALL_POS.z); stall.rotation.y = Math.atan2(-STALL_POS.x, -STALL_POS.z);
+register("dunes", "shop", stall);
+// bunting between stall and door
+{
+  const a = new THREE.Vector3(STALL_POS.x + 0.9, 2.4, STALL_POS.z - 1.1), b = new THREE.Vector3(DOOR_POS.x - 1.3, 2.55, DOOR_POS.z + 0.2), cols = [C.marigold, C.rust, "#F1E6D2", C.dusk, "#7FA4A0"];
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 2.7, 8), doorFrameMat); pole.position.set(b.x, duneH(b.x, b.z) + 1.35, b.z); pole.castShadow = true; S.add(pole);
+  const flagGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.12, 0, 0), new THREE.Vector3(0.12, 0, 0), new THREE.Vector3(0, -0.28, 0)]); flagGeo.computeVertexNormals();
+  for (let i = 0; i <= 16; i++) { const t = i / 16, p = a.clone().lerp(b, t); p.y -= Math.sin(t * Math.PI) * 0.45; const f = new THREE.Mesh(flagGeo, new THREE.MeshStandardMaterial({ color: cols[i % cols.length], roughness: 0.8, side: THREE.DoubleSide })); f.position.copy(p); f.lookAt(p.x + (b.z - a.z), p.y, p.z - (b.x - a.x)); f.castShadow = true; S.add(f); }
+}
+
+// --- canvas tent (Tent) ---
+const tent = new THREE.Group(); {
+  const tentMat = pbr("rough_linen", [3, 3], { color: "#EADBC2", side: THREE.DoubleSide });
+  const W = 2.6, H = 1.9, L = 3.2;
+  [-1, 1].forEach((s) => { const roof = new THREE.Mesh(new THREE.PlaneGeometry(L, Math.hypot(W / 2, H), 10, 6), tentMat); roof.position.set(s * W / 4, H / 2, 0); roof.rotation.set(0, Math.PI / 2, 0); roof.rotateX(s * (Math.PI / 2 - Math.atan2(H, W / 2))); roof.castShadow = roof.receiveShadow = true; tent.add(roof); });
+  const backShape = new THREE.Shape([new THREE.Vector2(-W / 2, 0), new THREE.Vector2(W / 2, 0), new THREE.Vector2(0, H)]);
+  const back = new THREE.Mesh(new THREE.ShapeGeometry(backShape), tentMat); back.position.z = -L / 2; back.castShadow = true; tent.add(back);
+  const ridge = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, L + 0.4, 8), doorFrameMat); ridge.rotation.x = Math.PI / 2; ridge.position.y = H + 0.02; tent.add(ridge);
+  [-L / 2 - 0.15, L / 2 + 0.15].forEach((z) => { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, H + 0.1, 8), doorFrameMat); p.position.set(0, (H + 0.1) / 2, z); p.castShadow = true; tent.add(p); });
+  const rug = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2.2), new THREE.MeshStandardMaterial({ map: stripeTex, roughness: 0.95 })); rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.02, 0.4); rug.receiveShadow = true; tent.add(rug);
+}
+tent.position.set(TENT_POS.x, duneH(TENT_POS.x, TENT_POS.z) - 0.05, TENT_POS.z); tent.rotation.y = Math.atan2(-TENT_POS.x, -TENT_POS.z);
+register("dunes", "tent", tent);
+
+// --- breakfast on the sand (우아한 아침 식사) ---
+const breakfast = new THREE.Group(); {
+  const t = place("round_wooden_table_01", breakfast, { s: 0.75 }); const top = topOf(t);
+  const cloth = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.6, 0.18, 40, 1, true), new THREE.MeshStandardMaterial({ color: "#F6F0E4", roughness: 0.9, side: THREE.DoubleSide, normalMap: tex("rough_linen", "nor", false, [2, 2]) })); cloth.position.y = top - 0.08; cloth.castShadow = true; breakfast.add(cloth);
+  const clothTop = new THREE.Mesh(new THREE.CircleGeometry(0.56, 40), cloth.material); clothTop.rotation.x = -Math.PI / 2; clothTop.position.y = top + 0.003; clothTop.receiveShadow = true; breakfast.add(clothTop);
+  place("tea_set_01", breakfast, { x: 0.05, y: top + 0.004, z: -0.05, ry: 0.6 });
+  [-1, 1].forEach((s) => place("painted_wooden_chair_01", breakfast, { x: s * 0.85, ry: -s * Math.PI / 2 }));
+}
+breakfast.position.set(BF_POS.x, duneH(BF_POS.x, BF_POS.z) - 0.03, BF_POS.z); breakfast.rotation.y = 0.4;
+register("dunes", "breakfast", breakfast);
+
+// --- thúng chai: Mũi Né's round basket boat ---
+const boat = new THREE.Group(); {
+  const weave = new THREE.CanvasTexture(canvasOf(256, 256, (g, w, h) => { g.fillStyle = "#3A2C22"; g.fillRect(0, 0, w, h); g.strokeStyle = "#6A5038"; g.lineWidth = 5; for (let i = -w; i < w * 2; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + h, h); g.stroke(); g.beginPath(); g.moveTo(i, h); g.lineTo(i + h, 0); g.stroke(); } }));
+  weave.colorSpace = THREE.SRGBColorSpace; weave.wrapS = weave.wrapT = THREE.RepeatWrapping; weave.repeat.set(6, 2);
+  const hull = new THREE.Mesh(new THREE.SphereGeometry(1.0, 48, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), new THREE.MeshStandardMaterial({ map: weave, roughness: 0.75, side: THREE.DoubleSide }));
+  hull.scale.y = 0.55; hull.position.y = 0.52; hull.castShadow = hull.receiveShadow = true; boat.add(hull);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.97, 0.035, 10, 60), new THREE.MeshStandardMaterial({ color: "#B99060", roughness: 0.7 })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.52 - Math.cos(Math.PI / 2.6 + Math.PI / 2) * 0.55 * 0 ; rim.castShadow = true; boat.add(rim);
+  const oar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.1, 8), doorFrameMat); oar.rotation.z = 1.25; oar.position.set(0.2, 0.55, 0.25); oar.castShadow = true; boat.add(oar);
+  boat.rotation.z = 0.12;
+}
+boat.position.set(BOAT_POS.x, duneH(BOAT_POS.x, BOAT_POS.z) - 0.1, BOAT_POS.z);
+register("dunes", "boat", boat);
+
+// --- floating rumor slips ---
+const rumors = new THREE.Group(); const slips = [];
+{
+  const r = rng(55);
+  for (let i = 0; i < 9; i++) {
+    const c = canvasOf(160, 100, (g, w, h) => { g.fillStyle = C.cream; g.fillRect(0, 0, w, h); g.strokeStyle = "rgba(43,38,32,.18)"; for (let y = 24; y < h; y += 16) { g.beginPath(); g.moveTo(8, y); g.lineTo(w - 8, y); g.stroke(); } g.fillStyle = C.ink; g.font = `22px ${FONT_TYPE}`; g.fillText("소문 #" + String(i + 1).padStart(2, "0"), 12, 34); g.font = `14px ${FONT_UI}`; g.fillText("— 들었어?", 12, 64); g.fillStyle = C.rust; g.fillRect(w - 26, 10, 12, 12); });
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const a = -1.3 + (i / 8) * 4.8 + r() * 0.3, d = 3.4 + r() * 4.6, x = Math.sin(a) * d, z = -Math.cos(a) * d;
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.25), new THREE.MeshStandardMaterial({ map: t, roughness: 0.9, side: THREE.DoubleSide }));
+    s.position.set(x, duneH(x, z) + 1.6 + r() * 1.5, z); s.castShadow = true; s.lookAt(0, s.position.y, 0);
+    s.userData.base = { y: s.position.y, ph: r() * 6, sp: 0.5 + r() * 0.6, ry: s.rotation.y }; rumors.add(s); slips.push(s);
+  }
+}
+register("dunes", "rumor", rumors);
+
+/* ================================================================
+   SPACE 2 — 이찬혁의 방
+   ================================================================ */
+const R = spaces.room.scene;
+R.background = new THREE.Color("#2A231D");
+R.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+const RW = 6.4, RH = 2.8, RD = 6.4;
+const plaster = pbr("painted_plaster_wall", [2.4, 1.1], { color: "#EFE1C6", envMapIntensity: 0.3 });
+plaster.shadowSide = THREE.DoubleSide;
+const WIN = { x: -0.4, y: 1.62, w: 1.7, h: 1.15 };
+{
+  // front wall with a window hole
+  const sh = new THREE.Shape([new THREE.Vector2(-RW / 2, 0), new THREE.Vector2(RW / 2, 0), new THREE.Vector2(RW / 2, RH), new THREE.Vector2(-RW / 2, RH)]);
+  sh.holes.push(new THREE.Path([new THREE.Vector2(WIN.x - WIN.w / 2, WIN.y - WIN.h / 2), new THREE.Vector2(WIN.x + WIN.w / 2, WIN.y - WIN.h / 2), new THREE.Vector2(WIN.x + WIN.w / 2, WIN.y + WIN.h / 2), new THREE.Vector2(WIN.x - WIN.w / 2, WIN.y + WIN.h / 2)]));
+  const fg = new THREE.ShapeGeometry(sh); const uv = fg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) + RW / 2) / RW, uv.getY(i) / RH);
+  const front = new THREE.Mesh(fg, plaster); front.position.z = -RD / 2; front.castShadow = front.receiveShadow = true; R.add(front);
+  [[0, RD / 2, Math.PI], [-RW / 2, 0, Math.PI / 2], [RW / 2, 0, -Math.PI / 2]].forEach(([x, z, ry]) => { const w = new THREE.Mesh(new THREE.PlaneGeometry(RW, RH), plaster); w.position.set(x, RH / 2, z); w.rotation.y = ry; w.castShadow = w.receiveShadow = true; R.add(w); });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), pbr("old_wooden_floor_01", [2.2, 2.2], { envMapIntensity: 0.4 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; R.add(floor);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), pbr("painted_plaster_wall", [2, 2], { color: "#F3EAD8", envMapIntensity: 0.2 })); ceil.rotation.x = Math.PI / 2; ceil.position.y = RH; ceil.castShadow = true; R.add(ceil);
+  const base = pbr("weathered_planks", [3, 0.15], { color: "#8A6A4E" });
+  [[0, -RD / 2 + 0.015, 0], [0, RD / 2 - 0.015, 0], [-RW / 2 + 0.015, 0, Math.PI / 2], [RW / 2 - 0.015, 0, Math.PI / 2]].forEach(([x, z, ry]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(ry ? RD : RW, 0.12, 0.03), base); b.position.set(x, 0.06, z); b.rotation.y = ry; b.castShadow = b.receiveShadow = true; R.add(b); });
+  // window frame + glass + outside view
+  const wf = pbr("weathered_planks", [0.3, 1], { color: "#EFE6D6" });
+  [[WIN.x, WIN.y + WIN.h / 2 + 0.04, WIN.w + 0.16, 0.08], [WIN.x, WIN.y - WIN.h / 2 - 0.05, WIN.w + 0.24, 0.1]].forEach(([x, y, w, h]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.16), wf); b.position.set(x, y, -RD / 2 + 0.02); b.castShadow = true; R.add(b); });
+  [WIN.x - WIN.w / 2 - 0.04, WIN.x + WIN.w / 2 + 0.04, WIN.x].forEach((x, i) => { const b = new THREE.Mesh(new THREE.BoxGeometry(i < 2 ? 0.08 : 0.045, WIN.h, i < 2 ? 0.16 : 0.06), wf); b.position.set(x, WIN.y, -RD / 2 + 0.02); b.castShadow = true; R.add(b); });
+}
+const outsideView = new THREE.Mesh(new THREE.PlaneGeometry(6, 3.6), new THREE.MeshBasicMaterial({ color: "#ffffff" })); outsideView.position.set(WIN.x, WIN.y + 0.3, -RD / 2 - 1.6); R.add(outsideView);
+// light: low afternoon sun through the window, a lamp, and soft bounce
+const roomSun = new THREE.DirectionalLight(0xffcf9a, 4.2); roomSun.position.set(-3.2, 5.8, -10); roomSun.target.position.set(0.6, 0, -0.6); roomSun.castShadow = true;
+roomSun.shadow.mapSize.set(isPhone() ? 1024 : 2048, isPhone() ? 1024 : 2048); Object.assign(roomSun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 25 }); roomSun.shadow.bias = -0.0005; roomSun.shadow.normalBias = 0.02;
+R.add(roomSun, roomSun.target);
+R.add(new THREE.HemisphereLight(0xfff0dc, 0x5a4636, 0.45));
+const bounce = new THREE.PointLight(0xffd7a8, 2.2, 7, 2); bounce.position.set(0.2, 1.0, -1.2); R.add(bounce);
+// dust in the sunbeam
+const beam = new THREE.Mesh(new THREE.BoxGeometry(WIN.w * 0.9, WIN.h * 0.9, 4.2), new THREE.MeshBasicMaterial({ color: 0xffdcae, transparent: true, opacity: 0.045, blending: THREE.AdditiveBlending, depthWrite: false }));
+beam.position.set(WIN.x + 0.35, 0.95, -RD / 2 + 2.05); beam.rotation.set(0.45, -0.18, 0); R.add(beam);
+
+// desk, chair, lamp, tea
+const desk = place("wooden_table_02", R, { x: WIN.x, z: -RD / 2 + 0.45 }); const deskTop = topOf(desk);
+place("painted_wooden_chair_01", R, { x: WIN.x + 0.05, z: -RD / 2 + 1.05, ry: Math.PI + 0.15 });
+const lamp = place("desk_lamp_arm_01", R, { x: WIN.x - 0.42, y: deskTop, z: -RD / 2 + 0.32, ry: 0.5 });
+const lampLight = new THREE.PointLight(0xffc888, 3.5, 3.5, 2); lampLight.position.set(WIN.x - 0.25, deskTop + 0.55, -RD / 2 + 0.55); R.add(lampLight);
+lamp.traverse((o) => { if (o.isMesh && /light/i.test(o.material.name)) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xffd29a); o.material.emissiveIntensity = 3; } });
+place("tea_set_01", R, { x: WIN.x + 0.42, y: deskTop, z: -RD / 2 + 0.38, ry: -0.4 });
+
+// typewriter (LETTER)
+const typewriter = new THREE.Group(); {
+  const enamel = new THREE.MeshPhysicalMaterial({ color: "#46553A", roughness: 0.32, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.15 });
+  const chrome = new THREE.MeshStandardMaterial({ color: "#B9B4AA", metalness: 1, roughness: 0.22 });
+  const rubber = new THREE.MeshStandardMaterial({ color: "#151515", roughness: 0.6 });
+  const keyMat = new THREE.MeshStandardMaterial({ color: "#EDE6D6", roughness: 0.35 });
+  const add = (geo, mat, x, y, z, rx = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); m.castShadow = m.receiveShadow = true; typewriter.add(m); return m; };
+  add(new RoundedBoxGeometry(0.42, 0.09, 0.34, 3, 0.02), enamel, 0, 0.045, 0);
+  add(new RoundedBoxGeometry(0.42, 0.08, 0.17, 3, 0.02), enamel, 0, 0.115, -0.075, -0.28);
+  add(new THREE.CylinderGeometry(0.035, 0.035, 0.52, 24), rubber, 0, 0.19, -0.14, 0, Math.PI / 2);
+  [-0.27, 0.27].forEach((x) => add(new THREE.CylinderGeometry(0.03, 0.03, 0.012, 20), chrome, x, 0.19, -0.14, 0, Math.PI / 2));
+  add(new THREE.CylinderGeometry(0.006, 0.006, 0.16, 8), chrome, 0.31, 0.24, -0.1, 0, 1.15);
+  const paper = new THREE.CanvasTexture(canvasOf(256, 300, (g, w, h) => { g.fillStyle = C.cream; g.fillRect(0, 0, w, h); g.fillStyle = C.ink; g.font = `22px ${FONT_TYPE}`; ["소문의 낙원", "", "모래 위에 문을", "하나 세워 두었다.", "", "— 작업 메모 (시안)"].forEach((l, i) => g.fillText(l, 18, 40 + i * 30)); }));
+  paper.colorSpace = THREE.SRGBColorSpace;
+  add(new THREE.PlaneGeometry(0.28, 0.33), new THREE.MeshStandardMaterial({ map: paper, roughness: 0.95, side: THREE.DoubleSide }), 0, 0.35, -0.17, -0.2);
+  const keyGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.012, 16);
+  for (let row = 0; row < 4; row++) for (let k = 0; k < (row === 3 ? 7 : 9); k++) add(keyGeo, keyMat, -0.17 + k * 0.042 + row * 0.01, 0.105 + row * 0.014, 0.135 - row * 0.038);
+  add(new RoundedBoxGeometry(0.2, 0.014, 0.03, 2, 0.006), keyMat, 0, 0.1, 0.165);
+}
+typewriter.position.set(WIN.x + 0.02, deskTop, -RD / 2 + 0.47); typewriter.rotation.y = 0.08;
+register("room", "contact", typewriter);
+
+// turntable on an apple crate (MUSIC)
+const musicG = new THREE.Group(); let record; {
+  const crate = place("wooden_crate_02", musicG, {}); const ct = topOf(crate);
+  const wood = new THREE.MeshStandardMaterial({ color: "#6B4A33", roughness: 0.45, metalness: 0 });
+  const base = new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.1, 0.36, 3, 0.015), wood); base.position.set(0, ct + 0.05, -0.2); base.castShadow = base.receiveShadow = true; musicG.add(base);
+  const platter = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.155, 0.02, 48), new THREE.MeshStandardMaterial({ color: "#9C9A96", metalness: 1, roughness: 0.3 })); platter.position.set(-0.05, ct + 0.11, -0.2); musicG.add(platter);
+  const grooves = new THREE.CanvasTexture(canvasOf(512, 512, (g, w, h) => { g.fillStyle = "#0E0E0E"; g.fillRect(0, 0, w, h); for (let r = 80; r < 250; r += 3) { g.strokeStyle = `rgba(255,255,255,${0.03 + Math.random() * 0.04})`; g.beginPath(); g.arc(w / 2, h / 2, r, 0, Math.PI * 2); g.stroke(); } g.fillStyle = C.marigold; g.beginPath(); g.arc(w / 2, h / 2, 70, 0, Math.PI * 2); g.fill(); g.fillStyle = C.ink; g.font = `22px ${FONT_TYPE}`; g.textAlign = "center"; g.fillText("개화", w / 2, h / 2 - 10); g.font = `14px ${FONT_UI}`; g.fillText("AKMU", w / 2, h / 2 + 18); g.beginPath(); g.arc(w / 2, h / 2, 5, 0, Math.PI * 2); g.fill(); }));
+  grooves.colorSpace = THREE.SRGBColorSpace;
+  record = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.004, 64), [new THREE.MeshPhysicalMaterial({ color: "#111", roughness: 0.3, clearcoat: 1 }), new THREE.MeshPhysicalMaterial({ map: grooves, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.2 }), new THREE.MeshStandardMaterial({ color: "#111" })]);
+  record.position.set(-0.05, ct + 0.123, -0.2); record.castShadow = true; musicG.add(record);
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.24, 8), new THREE.MeshStandardMaterial({ color: "#C8C4BC", metalness: 1, roughness: 0.25 })); arm.rotation.set(Math.PI / 2, 0, 0.35); arm.position.set(0.15, ct + 0.135, -0.22); musicG.add(arm);
+  const r = rng(8); [C.marigold, C.rust, C.cream, C.dusk].forEach((col, i) => { const lp = new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.31, 0.01), new THREE.MeshStandardMaterial({ color: col, roughness: 0.55 })); lp.position.set(0.02 + i * 0.01, ct + 0.15, 0.22 + i * 0.045); lp.rotation.set(-0.35 + r() * 0.08, 0, 0); lp.castShadow = true; musicG.add(lp); });
+}
+musicG.position.set(-RW / 2 + 0.36, 0, -1.1);
+register("room", "music", musicG);
+
+// TV on a crate (VIDEO) + a live canvas on its screen
+const tvC = document.createElement("canvas"); tvC.width = 320; tvC.height = 240; const tg = tvC.getContext("2d"); const tvTex = new THREE.CanvasTexture(tvC); tvTex.colorSpace = THREE.SRGBColorSpace;
+const tv = { playing: -1, start: 0, last: 0 };
+const tvG = new THREE.Group(); let tvScreen; {
+  const crate = place("wooden_crate_02", tvG, { ry: Math.PI / 2 }); const ct = topOf(crate);
+  const set = place("Television_01", tvG, { y: ct, ry: 0 });
+  const b = new THREE.Box3().setFromObject(set), sz = b.getSize(new THREE.Vector3()), cen = b.getCenter(new THREE.Vector3());
+  tvScreen = new THREE.Mesh(new THREE.PlaneGeometry(sz.x * 0.62, sz.y * 0.56), new THREE.MeshBasicMaterial({ map: tvTex, toneMapped: false }));
+  tvScreen.position.set(cen.x - sz.x * 0.08, cen.y + sz.y * 0.04, b.max.z + 0.004); tvG.add(tvScreen);
+}
+tvG.position.set(RW / 2 - 0.85, 0, -RD / 2 + 0.55); tvG.rotation.y = -0.55;
+register("room", "video", tvG);
+const tvGlow = new THREE.PointLight(0xa8c8ff, 0.0, 2.5, 2); R.add(tvGlow);
+
+// furniture
+place("wooden_bookshelf_worn", R, { x: -RW / 2 + 0.32, z: 1.15, ry: Math.PI / 2 });
+place("vintage_day_bed", R, { x: RW / 2 - 0.48, z: 1.35, ry: -Math.PI / 2 });
+const rockG = new THREE.Group(); place("Rockingchair_01", rockG, { ry: Math.PI }); rockG.position.set(1.15, 0, -0.35); rockG.rotation.y = -0.9; register("room", "rock", rockG);
+place("potted_plant_02", R, { x: -RW / 2 + 0.5, z: -RD / 2 + 0.5 });
+place("vintage_cabinet_01", R, { x: -1.35, z: RD / 2 - 0.36, ry: Math.PI, s: 0.98 });
+// rug
+{
+  const rt = new THREE.CanvasTexture(canvasOf(512, 340, (g, w, h) => { g.fillStyle = "#8C3E2B"; g.fillRect(0, 0, w, h); g.fillStyle = "#E8D9BC"; g.fillRect(16, 16, w - 32, h - 32); g.fillStyle = "#A9533A"; g.fillRect(30, 30, w - 60, h - 60); g.strokeStyle = "#E9B949"; g.lineWidth = 6; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(w / 2, 50 + i * 8); g.lineTo(w - 70 - i * 8, h / 2); g.lineTo(w / 2, h - 50 - i * 8); g.lineTo(70 + i * 8, h / 2); g.closePath(); g.stroke(); } }));
+  rt.colorSpace = THREE.SRGBColorSpace;
+  const rug = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.65), new THREE.MeshStandardMaterial({ map: rt, normalMap: tex("rough_linen", "nor", false, [4, 3]), roughness: 0.95 })); rug.rotation.x = -Math.PI / 2; rug.position.set(0.3, 0.004, -0.15); rug.receiveShadow = true; R.add(rug);
+}
+// framed concept poster(s)
+function posterCanvas(seed, title) { return canvasOf(420, 600, (g, w, h) => { g.fillStyle = C.cream; g.fillRect(0, 0, w, h); g.save(); g.beginPath(); g.rect(28, 28, w - 56, 360); g.clip(); duneArt(g, w, 400, seed); g.restore(); g.fillStyle = C.ink; g.font = `44px ${FONT_TYPE}`; g.fillText(title[0], 28, 450); g.fillText(title[1], 28, 500); g.font = `18px ${FONT_UI}`; g.fillText("concept poster · 시안", 28, 560); }); }
+[[RW / 2 - 0.02, 1.28, 1.35, -Math.PI / 2, ["PARADISE", "OF RUMORS"], 3], [1.35, 1.3, -RD / 2 + 0.02, 0, ["MŨI NÉ", "2026"], 8]].forEach(([x, y, z, ry, title, seed]) => {
+  const f = place("hanging_picture_frame_01", R, { x, y, z, ry });
+  const t = new THREE.CanvasTexture(posterCanvas(seed, title)); t.colorSpace = THREE.SRGBColorSpace; t.flipY = false;
+  f.traverse((o) => {
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    if (mats.some((m) => /glass/i.test(m.name)) && mats.length === 1) { o.visible = false; return; }
+    o.material = (Array.isArray(o.material) ? o.material : [o.material]).map((m) => { if (/glass/i.test(m.name)) return Object.assign(m.clone(), { transparent: true, opacity: 0, depthWrite: false }); if (!/artwork/i.test(m.name)) return m; const c = m.clone(); c.map = t; c.color.set("#ffffff"); c.needsUpdate = true; return c; });
+    if (!Array.isArray(o.userData.keep) && o.material.length === 1) o.material = o.material[0];
+  });
+});
+// pinned notes (album facts)
+const notes = new THREE.Group();
+[[["개화", "FLOWERING", "정규 4집", "2026.04.07"], -2.05, 1.85, 0.06], [["01", "소문의 낙원", "3:38", "선공개 04.03"], -1.62, 1.5, -0.08], [["04", "기쁨, 슬픔,", "아름다운 마음", "TITLE"], -2.12, 1.25, 0.04]].forEach(([lines, x, y, rz]) => {
+  const t = new THREE.CanvasTexture(canvasOf(220, 220, (g, w, h) => { g.fillStyle = C.cream; g.fillRect(0, 0, w, h); g.fillStyle = C.ink; lines.forEach((l, i) => { g.font = i === 0 ? `30px ${FONT_TYPE}` : `18px ${FONT_UI}`; g.fillText(l, 16, i === 0 ? 46 : 66 + i * 30); }); g.fillStyle = C.rust; g.beginPath(); g.arc(w / 2, 14, 7, 0, Math.PI * 2); g.fill(); }));
+  t.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 })); m.position.set(x, y, -RD / 2 + 0.012); m.rotation.z = rz; m.receiveShadow = true; notes.add(m);
+});
+register("room", "notes", notes);
+// door back to the dunes
+const doorBack = makeDoor(null); doorBack.position.set(1.3, 0, RD / 2 - 0.09); doorBack.rotation.y = Math.PI;
+register("room", "doorBack", doorBack);
+
+// room materials get their own copies with softer reflections than the outdoor ones
+{ const seen = new Map(); R.traverse((o) => { if (!o.isMesh) return; const one = (m) => { if (!m.isMeshStandardMaterial || m === plaster) return m; if (!seen.has(m)) { const c = m.clone(); c.envMapIntensity = Math.min(m.envMapIntensity ?? 1, 0.4); seen.set(m, c); } return seen.get(m); }; o.material = Array.isArray(o.material) ? o.material.map(one) : one(o.material); }); }
+
+/* ================= portal snapshots (each door shows the real other side) ================= */
+function snapshot(scene, from, dir, w, h, fov) {
+  const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4 });
+  const cam = new THREE.PerspectiveCamera(fov, w / h, 0.05, 900); cam.position.copy(from); cam.lookAt(from.clone().add(dir));
+  renderer.setRenderTarget(rt); renderer.render(scene, cam); renderer.setRenderTarget(null); return rt.texture;
+}
+function updateSnapshots() {
+  const df = new THREE.Vector3(0, 0, 1).applyQuaternion(door.quaternion), dp = door.position.clone();
+  const rf = new THREE.Vector3(0, 0, 1).applyQuaternion(doorBack.quaternion), rp = doorBack.position.clone();
+  // through the dune door you see the room as if standing in its doorway
+  door.userData.view.material.map = snapshot(R, rp.clone().add(rf.clone().multiplyScalar(0.25)).setY(1.35), rf, 384, 840, 62); door.userData.view.material.needsUpdate = true;
+  // through the room door you see the dunes from the dune doorway
+  doorBack.userData.view.material.map = snapshot(S, dp.clone().add(df.clone().multiplyScalar(0.25)).setY(dp.y + 1.45), df, 384, 840, 62); doorBack.userData.view.material.needsUpdate = true;
+  // the window shows the dunes and the sea
+  outsideView.material.map = snapshot(S, new THREE.Vector3(4, duneH(4, 9) + 2.6, 9), new THREE.Vector3(-0.85, -0.04, -0.5).normalize(), 1024, 614, 55); outsideView.material.needsUpdate = true;
+}
+
+/* ================= collect pick targets ================= */
+for (const k in hot) { const h = hot[k]; h.group.traverse((o) => { if (o.isMesh) spaces[h.space].solids.push(o); }); }
+// solid walls / furniture block clicks behind them in the room
+R.traverse((o) => { if (o.isMesh && !spaces.room.solids.includes(o) && o !== beam && o !== outsideView) spaces.room.solids.push(o); });
+
+/* ================= post-processing ================= */
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(DPR);
+const renderPass = new RenderPass(S, camera); composer.addPass(renderPass);
+const outline = new OutlinePass(new THREE.Vector2(innerWidth, innerHeight), S, camera);
+Object.assign(outline, { edgeStrength: 3.2, edgeGlow: 0.5, edgeThickness: 1.4 }); outline.visibleEdgeColor.set("#FFD27A"); outline.hiddenEdgeColor.set("#5A3A12"); composer.addPass(outline);
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.25, 0.6, 1.8); composer.addPass(bloomPass);
+const grade = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.32 }, uWarm: { value: 0.04 } },
+  vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+  fragmentShader: "uniform sampler2D tDiffuse; uniform float uVig; uniform float uWarm; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); vec2 d = vUv - 0.5; float v = smoothstep(0.85, 0.2, length(d) * 1.25); c.rgb *= mix(1.0 - uVig, 1.0, v); c.rgb *= vec3(1.0 + uWarm, 1.0, 1.0 - uWarm); gl_FragColor = c; }",
+});
+composer.addPass(grade);
+composer.addPass(new OutputPass());
+function resize() { renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener("resize", resize); resize();
+
+/* ================= view / input ================= */
+const view = { yaw: -0.1, pitch: 0.5, fov: 90 };
+const vel = { x: 0, y: 0 }, dir = new THREE.Vector3();
+const SPAWN = { dunes: new THREE.Vector3(0, duneH(0, 0) + 1.6, 0), room: new THREE.Vector3(1.3, 1.55, 2.2) };
+camera.position.copy(SPAWN.dunes);
+function applyView() { const cp = Math.cos(view.pitch); dir.set(Math.sin(view.yaw) * cp, Math.sin(view.pitch), -Math.cos(view.yaw) * cp).add(camera.position); camera.lookAt(dir); if (camera.fov !== view.fov) { camera.fov = view.fov; camera.updateProjectionMatrix(); } }
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pick(x, y) { ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); const hit = ray.intersectObjects(spaces[current].solids, false)[0]; let o = hit && hit.object; while (o && !o.userData.key) o = o.parent; return o ? o.userData.key : null; }
+let hoverKey = null, activeKey = null;
+function refreshGlow() { const keys = [hoverKey, activeKey].filter((k, i, a) => k && a.indexOf(k) === i && k !== "flowers"); outline.selectedObjects = keys.map((k) => hot[k].group); }
+
+const cursor = $("cursor"), cursorLabel = $("cursorLabel"); let cx = 0, cy = 0;
+addEventListener("pointermove", (e) => { if (e.pointerType !== "mouse") return; cx = e.clientX; cy = e.clientY; cursor.style.transform = `translate3d(${cx - 4}px, ${cy - 3}px, 0) rotate(${((cx / innerWidth) * 2 - 1) * 18}deg)`; cursor.classList.toggle("is-hidden", e.target !== renderer.domElement); });
+let entered = false, transitioning = false, down = null, dragging = false, hoverQueued = false;
+const el = renderer.domElement;
+el.addEventListener("pointerdown", (e) => { if (!entered || transitioning) return; down = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY }; dragging = false; vel.x = vel.y = 0; gsap.killTweensOf(view); try { el.setPointerCapture(e.pointerId); } catch (_) {} cursor.classList.add("is-down"); });
+el.addEventListener("pointermove", (e) => {
+  if (!entered || transitioning) return;
+  if (down) { const dx = e.clientX - down.x, dy = e.clientY - down.y; down.x = e.clientX; down.y = e.clientY; if (!dragging && Math.hypot(e.clientX - down.sx, e.clientY - down.sy) > 6) { dragging = true; dismissHint(); if (activeKey) closePanel(false); } if (dragging) { const k = (view.fov / 75) * 0.0042; view.yaw -= dx * k; view.pitch = clamp(view.pitch + dy * k, -1.1, 1.1); vel.x = -dx * k; vel.y = dy * k; } }
+  else hoverQueued = true;
+});
+function endPointer(e) { if (!down) return; cursor.classList.remove("is-down"); const wasDrag = dragging; down = null; dragging = false; if (!wasDrag && e.type === "pointerup") { const key = pick(e.clientX, e.clientY); if (key) activate(key); } }
+el.addEventListener("pointerup", endPointer); el.addEventListener("pointercancel", endPointer);
+el.addEventListener("pointerleave", () => { if (!down) { hoverKey = null; refreshGlow(); cursor.classList.remove("is-hot"); } });
+el.addEventListener("wheel", (e) => { if (!entered || transitioning) return; e.preventDefault(); gsap.killTweensOf(view, "fov"); view.fov = clamp(view.fov + e.deltaY * 0.03, 35, 90); }, { passive: false });
+addEventListener("keydown", (e) => { if (e.key === "Escape" && activeKey) closePanel(true); });
+
+const FOV = { music: 34, video: 36, contact: 30, tour: 40, shop: 44 };
+const tmpV = new THREE.Vector3(), bb = new THREE.Box3();
+function lookAtKey(key) {
+  bb.setFromObject(hot[key].group).getCenter(tmpV); tmpV.sub(camera.position);
+  let yaw = Math.atan2(tmpV.x, -tmpV.z), pitch = Math.atan2(tmpV.y, Math.hypot(tmpV.x, tmpV.z));
+  const fov = FOV[key], vf = (fov * Math.PI) / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+  if (isPhone()) pitch -= vf * 0.24; else yaw -= hf * 0.16;
+  let d = yaw - view.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); vel.x = vel.y = 0;
+  return gsap.to(view, { yaw: view.yaw + d, pitch, fov, duration: 1.8 * D, ease: "power3.inOut", overwrite: true });
+}
+function zoomOut() { gsap.to(view, { fov: 70, pitch: current === "room" ? -0.08 : -0.03, duration: 1.3 * D, ease: "power3.inOut", overwrite: true }); }
+
+/* ================= travel through doors ================= */
+const whereName = $("whereName"), whereSub = $("whereSub"), travelBtn = $("travel");
+function updateWhere() {
+  whereName.textContent = spaces[current].label; whereSub.textContent = spaces[current].sub;
+  travelBtn.textContent = current === "dunes" ? "이찬혁의 방으로 →" : "← 모래언덕으로 나가기";
+  $("hint").textContent = current === "dunes" ? "모래 위에 선 문을 눌러 보세요 · 드래그로 둘러보기" : "타자기, 턴테이블, TV를 눌러 보세요";
+}
+async function goTo(target) {
+  if (transitioning || target === current) return;
+  transitioning = true; dismissHint(); if (activeKey) closePanel(false); hoverKey = null; refreshGlow(); cursor.classList.remove("is-hot");
+  const doorG = hot[spaces[current].door].group, hinge = doorG.userData.hinge;
+  const dp = doorG.position.clone(), fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(doorG.quaternion);
+  const near = dp.clone().addScaledVector(fwd, 0.3); near.y = dp.y + 1.4;
+  const look = dp.clone().sub(camera.position); let d = Math.atan2(look.x, -look.z) - view.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
+  sfx.door();
+  await gsap.timeline()
+    .to(view, { yaw: view.yaw + d, pitch: -0.02, fov: 58, duration: 1.1 * D, ease: "power2.inOut" })
+    .to(hinge.rotation, { y: -1.4, duration: 0.9 * D, ease: "power2.out" }, 0.4 * D)
+    .to(camera.position, { x: near.x, y: near.y, z: near.z, duration: 1.6 * D, ease: "power2.in" }, 0.9 * D)
+    .to(view, { fov: 40, duration: 1.6 * D, ease: "power2.in" }, 0.9 * D)
+    .to("#veil", { autoAlpha: 1, duration: 0.45 * D }, 2.0 * D);
+  current = target; activeKey = null; if (tv.playing >= 0 && target !== "room") stopVideo();
+  setAmbience(target); hinge.rotation.y = -0.4;
+  renderPass.scene = spaces[target].scene; outline.renderScene = spaces[target].scene;
+  $("veilSub").textContent = target === "room" ? "Lee Chan-hyuk's room" : "Mũi Né · Paradise of Rumors";
+  await typeInto($("veilText"), target === "room" ? "모래 위의 문을 열자, 누군가의 방이 나왔다." : "문을 닫고, 다시 모래언덕으로.", { speed: 40 });
+  await wait(450);
+  const nd = hot[spaces[target].door].group, ndp = nd.position.clone(), nf = new THREE.Vector3(0, 0, 1).applyQuaternion(nd.quaternion);
+  const start = ndp.clone().addScaledVector(nf, 0.3); start.y = target === "room" ? 1.5 : ndp.y + 1.6;
+  const endP = target === "room" ? SPAWN.room.clone() : (() => { const p = ndp.clone().addScaledVector(nf, 2.6); p.y = duneH(p.x, p.z) + 1.6; return p; })();
+  camera.position.copy(start); view.yaw = Math.atan2(nf.x, -nf.z); view.pitch = target === "room" ? -0.08 : -0.03; view.fov = 44;
+  nd.userData.hinge.rotation.y = -1.4; updateWhere();
+  await gsap.timeline()
+    .to("#veil", { autoAlpha: 0, duration: 0.6 * D })
+    .to(camera.position, { x: endP.x, y: endP.y, z: endP.z, duration: 1.6 * D, ease: "power2.out" }, 0)
+    .to(view, { fov: 70, duration: 1.6 * D, ease: "power2.out" }, 0)
+    .to(nd.userData.hinge.rotation, { y: -0.4, duration: 1.0 * D, ease: "power2.inOut" }, 0.7 * D);
+  $("veilText").textContent = ""; transitioning = false; showHint();
+}
+travelBtn.addEventListener("click", () => { if (entered) { sfx.ui(); goTo(current === "dunes" ? "room" : "dunes"); } });
+
+/* ================= actions ================= */
+let rockT = -1;
+async function activate(key, fromMenu) {
+  if (transitioning) return; dismissHint();
+  if (HOME[key] && HOME[key] !== current) { await goTo(HOME[key]); return activate(key, fromMenu); }
+  switch (key) {
+    case "door": return goTo("room");
+    case "doorBack": return goTo("dunes");
+    case "flowers": sfx.bloom(); bloom.t0 = performance.now(); return toast("모래 위에 꽃이 피었다.", "개화 · Flowering — 정규 4집");
+    case "rumor": { sfx.paper(); const s = slips[Math.floor(Math.random() * slips.length)]; gsap.fromTo(s.rotation, { z: 0 }, { z: Math.PI * 2, duration: 1.2 * D, ease: "power2.out" }); return toast(RUMORS[Math.floor(Math.random() * RUMORS.length)], "소문 쪽지 · 컨셉 문구"); }
+    case "tent": sfx.tent(); return toast("바람이 텐트 천을 흔든다.", "06  Tent · 2:30");
+    case "breakfast": sfx.clink(); return toast("누군가 모래 위에 아침상을 차려 두었다.", "09  우아한 아침 식사 · 3:08");
+    case "boat": sfx.boat(); return toast("바다로 나가지 못한 둥근 배가 모래에 앉아 있다.", "thúng chai · 무이네 어촌의 바구니 배");
+    case "rock": sfx.creak(); rockT = performance.now(); return toast("흔들의자가 혼자 흔들린다.", "방 · 컨셉 오브젝트");
+    case "notes": sfx.paper(); return toast("벽에 앨범 메모가 핀으로 꽂혀 있다.", "개화 · 2026.04.07 · 11곡");
+  }
+  if (!fromMenu) (key === "contact" ? sfx.key : key === "tour" || key === "shop" ? sfx.paper : sfx.ui)();
+  if (activeKey === "video" && key !== "video") stopVideo();
+  activeKey = key; refreshGlow(); menuSelect(key); lookAtKey(key); openPanel(key);
+}
+
+/* ================= menu + panel ================= */
+const menu = $("menu");
+menu.addEventListener("click", (e) => { const b = e.target.closest(".mbtn"); if (!b || !entered || transitioning) return; sfx.ui(); activate(b.dataset.key, true); });
+function menuSelect(key) {
+  const btns = [...menu.children], first = new Map(btns.map((b) => [b, b.getBoundingClientRect().left]));
+  const idx = btns.findIndex((b) => b.dataset.key === key); if (idx > 0) [...btns.slice(idx), ...btns.slice(0, idx)].forEach((b) => menu.appendChild(b));
+  btns.forEach((b) => { const on = b.dataset.key === key; b.classList.toggle("is-active", on); if (on) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current"); const dx = first.get(b) - b.getBoundingClientRect().left; if (!dx) return; if (dx < 0) gsap.fromTo(b, { x: 50, autoAlpha: 0 }, { x: 0, autoAlpha: 1, duration: 0.7 * D, ease: "power3.out", delay: 0.1 * D }); else gsap.fromTo(b, { x: dx }, { x: 0, duration: 0.8 * D, ease: "power3.inOut" }); });
+}
+function menuClear() { [...menu.children].forEach((b) => { b.classList.remove("is-active"); b.removeAttribute("aria-current"); }); }
+const panel = $("panel"), pBody = $("pBody"), pTitle = $("pTitle");
+$("pClose").addEventListener("click", () => closePanel(true));
+function openPanel(key) {
+  ({ music: renderMusic, video: renderVideo, tour: renderTour, contact: renderLetter, shop: renderShop })[key]();
+  pBody.scrollTop = 0; panel.hidden = false; pTitle.textContent = "";
+  gsap.fromTo(panel, isPhone() ? { autoAlpha: 0, y: 30, rotate: 0 } : { autoAlpha: 0, x: -24, rotate: -1.5 }, { autoAlpha: 1, x: 0, y: 0, rotate: -0.4, duration: 0.5 * D, delay: 0.5 * D, ease: "power3.out", overwrite: true, onComplete: () => typeInto(pTitle, TITLES[key], { speed: 55 }) });
+}
+function closePanel(withZoom) { if (activeKey === "video") stopVideo(); activeKey = null; refreshGlow(); menuClear(); gsap.to(panel, { autoAlpha: 0, duration: 0.25 * D, overwrite: true, onComplete: () => { panel.hidden = true; } }); if (withZoom) zoomOut(); }
+const cover = coverArt().toDataURL("image/jpeg", 0.88);
+VIDEOS.forEach((v) => (v.poster = posterArt(v).toDataURL("image/jpeg", 0.85)));
+const goods = [["개화 LP (예시)", 61], ["무이네 엽서 세트 (예시)", 62], ["소문 쪽지 노트 (예시)", 63], ["모래언덕 포스터 (예시)", 64]].map(([name, seed]) => ({ name, img: goodsArt(seed, name.split(" (")[0]).toDataURL("image/jpeg", 0.85) }));
+function renderMusic() {
+  pBody.innerHTML = `<div class="album-top"><img src="${cover}" alt="커버 이미지 자리"><div><p class="kicker">${ALBUM.artist} · ${ALBUM.kind}</p><h3>${ALBUM.title}<br>(${ALBUM.en})</h3><p class="meta">${ALBUM.date} · ${ALBUM.tracks.length}곡 · ${ALBUM.total}</p></div></div>
+    <ol class="tracks">${ALBUM.tracks.map(([t, len, tag], i) => `<li><span>${String(i + 1).padStart(2, "0")}</span><span>${t}${tag ? `<span class="tag">${tag}</span>` : ""}</span><span>${len}</span></li>`).join("")}</ol>
+    <p class="kicker">Listen on</p><div class="chips">${["Melon", "Spotify", "Apple Music", "YouTube Music"].map((s) => `<button class="pbtn sample">${s}</button>`).join("")}</div>
+    <p class="note">커버 이미지와 스트리밍 링크는 자리만 잡아 두었습니다. 공식 에셋으로 교체하세요.</p>`;
+  bindSamples();
+}
+function renderVideo() {
+  pBody.innerHTML = `<div class="vlist">${VIDEOS.map((v, i) => `<button class="vcard${tv.playing === i ? " is-playing" : ""}" data-i="${i}"><img src="${v.poster}" alt=""><b>${v.title}</b><span>${tv.playing === i ? "■ 방 안 TV에서 재생 중 · 눌러서 정지" : v.sub + " · " + v.len}</span></button>`).join("")}</div><p class="note">영상은 실제 URL 대신 TV 속 그림으로 대신했습니다. 공식 영상 링크를 연결하면 TV 화면에 재생됩니다.</p>`;
+  pBody.querySelectorAll(".vcard").forEach((b) => b.addEventListener("click", () => { const i = +b.dataset.i; if (tv.playing === i) stopVideo(); else playVideo(i); const st = pBody.scrollTop; renderVideo(); pBody.scrollTop = st; }));
+}
+function playVideo(i) { tv.playing = i; tv.start = performance.now(); sfx.ui(); gsap.to(tvGlow, { intensity: 1.2, duration: 0.4 }); if (audio.ctx) { const g = audio.amb.room.gain, t = audio.ctx.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0.25, t + 0.6); } }
+function stopVideo() { if (tv.playing < 0) return; tv.playing = -1; gsap.to(tvGlow, { intensity: 0, duration: 0.4 }); if (current === "room") setAmbience("room", 0.6); }
+function renderTour() {
+  pBody.innerHTML = `<p class="kicker">Concept concert</p><h3 style="margin:0 0 6px;font-family:var(--font-type);font-weight:400;font-size:20px">AKMU CONCERT ‘소문의 낙원’</h3><p class="meta" style="margin-bottom:14px">날짜·장소·예매처는 공식 공지 기준으로 채워 넣는 자리입니다.</p>
+    <ul class="rows">${[0, 1, 2].map(() => `<li><time>MM.DD</time><div class="place"><b>도시</b><span>공연장 이름 · 시간</span></div><button class="pbtn sample">예매</button></li>`).join("")}</ul><p class="note">이정표처럼, 공연 정보가 생기면 이 목록이 길어집니다.</p>`;
+  bindSamples();
+}
+function renderLetter() {
+  pBody.innerHTML = `<div class="letter"><p class="kicker">To. 이 방의 주인에게</p><dl><dt>문의</dt><dd>contact@example.com</dd><dt>섭외</dt><dd>booking@example.com</dd><dt>팬레터</dt><dd>주소 입력 자리</dd></dl>
+    <label for="letterText">편지 쓰기</label><textarea id="letterText" placeholder="여기에 쓰면 타자기 소리가 납니다."></textarea><button class="pbtn" id="sendLetter" style="justify-self:start">봉투에 넣기</button></div><p class="note">연락처는 예시입니다. 시안이라 편지는 실제로 보내지지 않아요.</p>`;
+  const ta = $("letterText");
+  ta.addEventListener("keydown", (e) => { if (e.key === "Enter") sfx.ding(); else if (e.key.length === 1 || e.key === "Backspace") sfx.key(); });
+  $("sendLetter").addEventListener("click", () => { sfx.paper(); toast(ta.value.trim() ? "편지를 봉투에 넣었다. (시안이라 발송되지 않음)" : "아직 아무것도 쓰지 않았다."); });
+}
+function renderShop() {
+  pBody.innerHTML = `<p class="kicker">난민들의 축제 · 모래 위 가판대</p><div class="goods">${goods.map((g) => `<div><img src="${g.img}" alt=""><b>${g.name}</b><span>₩ —</span></div>`).join("")}</div><a class="store" href="https://example.com" target="_blank" rel="noopener">스토어 열기 ↗</a><p class="note">상품과 가격은 예시입니다. 공식 스토어 주소로 바꿔 연결하세요.</p>`;
+}
+function bindSamples() { pBody.querySelectorAll(".sample").forEach((b) => b.addEventListener("click", () => toast(`${b.textContent} 링크 자리`, "실제 URL은 공식 채널 기준으로 연결"))); }
+
+let hintShown = false;
+function showHint() { if (!entered) return; const h = $("hint"); h.hidden = false; hintShown = true; gsap.fromTo(h, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.5 }); }
+function dismissHint() { if (!hintShown) return; hintShown = false; gsap.to($("hint"), { autoAlpha: 0, duration: 0.3, onComplete: () => ($("hint").hidden = true) }); }
+
+function enter() {
+  audioInit(); sfx.ding(); document.body.classList.add("entered"); updateWhere();
+  gsap.to("#intro", { autoAlpha: 0, duration: 0.7 * D, onComplete: () => ($("intro").hidden = true) });
+  gsap.fromTo(view, { fov: 90, pitch: 0.5, yaw: -0.1 }, { fov: 70, pitch: -0.03, duration: 2.8 * D, ease: "power3.inOut", delay: 0.2 * D, onComplete: () => { entered = true; showHint(); } });
+  gsap.from(".mbtn", { autoAlpha: 0, y: isPhone() ? 14 : -14, stagger: 0.07, duration: 0.5 * D, delay: 1.7 * D });
+  gsap.from(["#where", "#mute"], { autoAlpha: 0, duration: 0.5 * D, delay: 2.0 * D });
+}
+
+/* ================= TV drawing ================= */
+const secs = (s) => { const [m, x] = s.split(":").map(Number); return m * 60 + x; };
+const fmt = (t) => `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+function drawTV(now) {
+  if (now - tv.last < 40) return; tv.last = now; const g = tg;
+  if (tv.playing < 0) {
+    const bars = [C.cream, C.marigold, C.sky, "#8FAE5E", C.rust, C.dusk, C.ink]; bars.forEach((c, i) => { g.fillStyle = c; g.fillRect(i * 320 / 7, 0, 320 / 7 + 1, 170); });
+    g.fillStyle = C.ink; g.fillRect(0, 170, 320, 70); g.fillStyle = C.cream; g.font = `20px ${FONT_TYPE}`; g.textAlign = "center"; g.fillText("낙원 방송 · CH 4", 160, 205); g.font = `13px ${FONT_UI}`; g.fillText(Math.floor(now / 600) % 2 ? "NO SIGNAL" : "", 160, 228);
+  } else {
+    const v = VIDEOS[tv.playing], total = secs(v.len), t = ((now - tv.start) / 1000) % total;
+    g.save(); g.translate(-((t * 18) % 60), 0); duneArt(g, 380, 240, v.seed + Math.floor(t / 4)); g.restore();
+    g.fillStyle = "rgba(251,247,238,.9)"; g.fillRect(0, 196, 320, 44); g.fillStyle = C.ink; g.textAlign = "left"; g.font = `16px ${FONT_TYPE}`; g.fillText(v.title, 10, 215); g.font = `11px ${FONT_UI}`; g.fillText(`▶ ${fmt(t)} / ${v.len}`, 10, 232);
+    g.fillStyle = C.rust; g.fillRect(150, 226, 160 * (t / total), 4); g.strokeStyle = C.ink; g.strokeRect(150, 226, 160, 4);
+  }
+  g.fillStyle = "rgba(0,0,0,.08)"; for (let y = 0; y < 240; y += 3) g.fillRect(0, y, 320, 1);
+  tvTex.needsUpdate = true;
+}
+
+/* ================= loop ================= */
+let lastT = performance.now(), frame = 0;
+const tvWorld = new THREE.Vector3();
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  // take the door/window snapshots once both scenes have rendered for real (sky cubemap, shadow maps ready)
+  if (++frame === 3) { renderer.render(R, camera); updateSnapshots(); }
+  if (entered && !transitioning && !down && (Math.abs(vel.x) > 1e-5 || Math.abs(vel.y) > 1e-5)) { view.yaw += vel.x; view.pitch = clamp(view.pitch + vel.y, -1.1, 1.1); vel.x *= 0.9; vel.y *= 0.9; }
+  if (hoverQueued && finePointer && !transitioning) { hoverQueued = false; const k = pick(cx, cy); if (k !== hoverKey) { hoverKey = k; refreshGlow(); } cursor.classList.toggle("is-hot", !!k); if (k) cursorLabel.textContent = LABELS[k]; }
+  applyView();
+  if (current === "dunes") {
+    if (bloom.t0 >= 0 && now - bloom.t0 < 4000) { const k = bloomK(now); fGaz.userData.update(k); fUrs.userData.update(k); }
+    slips.forEach((s) => { const b = s.userData.base; s.position.y = b.y + Math.sin(now / 1000 * b.sp + b.ph) * 0.12; s.rotation.x = Math.sin(now / 1400 + b.ph) * 0.15; });
+    const gp = grains.geometry.attributes.position; for (let i = 0; i < gp.count; i++) { let x = gp.getX(i) + dt * 1.6, z = gp.getZ(i) + dt * 0.5; if (x > 28) x -= 56; if (z > 28) z -= 56; gp.setX(i, x); gp.setZ(i, z); } gp.needsUpdate = true;
+  } else {
+    record.rotation.y -= dt * (activeKey === "music" ? 3.5 : 0.4);
+    if (rockT >= 0) { const t = (now - rockT) / 1000; rockG.rotation.x = Math.sin(t * 3.2) * 0.09 * Math.exp(-t * 0.5); if (t > 8) { rockT = -1; rockG.rotation.x = 0; } }
+    drawTV(now);
+    if (tv.playing >= 0) { tvScreen.getWorldPosition(tvWorld); tvGlow.position.copy(tvWorld).add(new THREE.Vector3(-0.3, 0, 0.35)); tvGlow.intensity = 1 + Math.sin(now / 90) * 0.15; }
+  }
+  composer.render();
+  requestAnimationFrame(loop);
+}
+
+/* ================= boot ================= */
+updateWhere();
+applyView();
+renderer.compile(S, camera); renderer.compile(R, camera);
+progress.target = 1; await wait(400); clearInterval(progTimer);
+$("loading") && ($("loading").textContent = "LOADING 100%"); $("barFill") && ($("barFill").style.width = "100%");
+requestAnimationFrame(loop);
+readyResolve(true);
+</script>
+</body>
+</html>
