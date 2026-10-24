@@ -432,7 +432,7 @@ X, Y = np.meshgrid(xs, ys)
 Z, DUNE, LAKE = terrain(X, Y)
 dist = np.hypot(X - 4, Y + 10)
 patch = 0.5 + 0.5 * np.sin(X * 0.17 + np.sin(Y * 0.11) * 2.0) * np.cos(Y * 0.13 + X * 0.05)
-MEADOW = smooth(0.9 - DUNE, 0.0, 0.6) * (1 - smooth(LAKE, 0.02, 0.15)) * (1 - smooth(Y, 34, 46)) * (1 - smooth(dist, 75, 115))
+MEADOW = smooth(0.9 - DUNE, 0.0, 0.6) * (1 - smooth(LAKE, 0.02, 0.15)) * (1 - smooth(Y, 20, 27)) * (1 - smooth(dist, 75, 115))
 MEADOW = np.clip(MEADOW * (0.9 + 0.3 * patch), 0, 1)
 verts = np.stack([X.ravel(), Y.ravel(), Z.ravel()], 1).astype(np.float32)
 idx = np.arange((N + 1) * (N + 1)).reshape(N + 1, N + 1)
@@ -647,109 +647,214 @@ def ground_z(x, y):
     return float(terrain(np.array(x), np.array(y))[0])
 
 
-# painted sun-arch stage (like the MV)
-def painted_panel():
-    H_, W_ = 512, 1024
-    yy, xx = np.mgrid[0:H_, 0:W_]
-    img = np.zeros((H_, W_, 3))
-    img[:] = (0.12, 0.42, 0.45)
-    cx, cy = W_ / 2, H_ * 0.95
+# the stage wagon from the MV: green wagon with lilac steps, wooden corner posts with knobs, dark-green
+# side panels with white climbing roses, a teal front with an arched opening outlined in pink (the dunes
+# show through it), blue curtains drawn aside, and a teal arch painted with a spiky gold sun
+def save_rgba(name, arr):
+    h, w, _ = arr.shape
+    im = bpy.data.images.new(name, w, h, alpha=True)
+    im.pixels.foreach_set(np.clip(arr[::-1], 0, 1).astype(np.float32).ravel())
+    path = os.path.join(WORK, "renders", name + ".png")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    im.filepath_raw = path
+    im.file_format = "PNG"
+    im.save()
+    return path
+
+
+def alpha_mat(name, path, rough=0.7):
+    m, nt, b = new_mat(name)
+    tx = node(nt, "ShaderNodeTexImage")
+    tx.image = load_img(path)
+    tx.extension = "CLIP"
+    nt.links.new(tx.outputs["Color"], b.inputs["Base Color"])
+    nt.links.new(tx.outputs["Alpha"], b.inputs["Alpha"])
+    setin(b, "Roughness", rough)
+    return m
+
+
+PX = 400  # texture pixels per metre
+TEAL, TEAL_D, GREEN_D, PINK = (0.13, 0.42, 0.6), (0.08, 0.3, 0.45), (0.07, 0.25, 0.15), (0.86, 0.36, 0.42)
+rngp = np.random.default_rng(4)
+
+
+def disc(img, fx, fy, r, col):
+    y0, y1 = int(max(fy - r, 0)), int(min(fy + r + 1, img.shape[0]))
+    x0, x1 = int(max(fx - r, 0)), int(min(fx + r + 1, img.shape[1]))
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    m = (xx - fx) ** 2 + (yy - fy) ** 2 < r * r
+    img[y0:y1, x0:x1, :3][m] = col
+
+
+def roses(img, x0, x1, y0, y1, n, vines=2):
+    """White climbing roses: wavy vines with blossoms along them."""
+    yy = np.arange(y0, y1)
+    for k in range(vines):
+        cx = x0 + (x1 - x0) * (0.3 + 0.4 * k / max(vines - 1, 1))
+        vx = cx + (x1 - x0) * 0.16 * np.sin(yy / 55.0 + k * 2)
+        for yv, xv in zip(yy[::2], vx[::2]):
+            disc(img, xv, yv, 3, (0.2, 0.42, 0.22))
+    for _ in range(n):
+        fx, fy = rngp.uniform(x0 + 12, x1 - 12), rngp.uniform(y0 + 12, y1 - 12)
+        r = rngp.uniform(8, 14)
+        disc(img, fx, fy, r, (0.96, 0.94, 0.9) if rngp.random() > 0.2 else (0.95, 0.72, 0.78))
+        disc(img, fx, fy, r * 0.35, (0.92, 0.78, 0.45))
+
+
+def front_panel():
+    h_, w_ = int(3.1 * PX), int(4.6 * PX)
+    img = np.ones((h_, w_, 4))
+    img[..., :3] = TEAL
+    side, band = int(0.95 * PX), int(0.35 * PX)
+    img[:, :side, :3] = GREEN_D
+    img[:, w_ - side:, :3] = GREEN_D
+    img[:band, side:w_ - side, :3] = TEAL_D
+    roses(img, 0, side, 0, h_, 80)
+    roses(img, w_ - side, w_, 0, h_, 80)
+    roses(img, side, w_ - side, int(band * 0.2), int(band * 0.9), 45, vines=1)
+    yy, xx = np.mgrid[0:h_, 0:w_]
+    cx, ow, top_y = w_ / 2, 0.95 * PX, h_ - 1.55 * PX
+
+    def arch(o):
+        return ((np.abs(xx - cx) < ow + o) & (yy > top_y)) | ((xx - cx) ** 2 + (yy - top_y) ** 2 < (ow + o) ** 2)
+    inner = arch(0)
+    img[arch(0.07 * PX) & ~inner, :3] = PINK
+    img[..., :3] += rngp.normal(0, 0.02, (h_, w_, 1))
+    img[inner, 3] = 0
+    return save_rgba("stage_front", img)
+
+
+def sun_arch():
+    h_, w_ = int(1.5 * PX), int(3.0 * PX)
+    img = np.zeros((h_, w_, 4))
+    yy, xx = np.mgrid[0:h_, 0:w_]
+    cx, cy, R0 = w_ / 2, h_, 1.5 * PX
     r = np.hypot(xx - cx, yy - cy)
-    ang = np.arctan2(cy - yy, xx - cx)
-    rays = (np.sin(ang * 22) > 0.2) & (r < H_ * 0.85) & (r > H_ * 0.42)
-    img[rays] = (0.95, 0.72, 0.18)
-    img[r < H_ * 0.4] = (0.97, 0.82, 0.25)
-    img[(r < H_ * 0.4) & (r > H_ * 0.36)] = (0.85, 0.3, 0.16)
-    img[(r > H_ * 0.88) & (r < H_ * 0.93)] = (0.85, 0.3, 0.16)
-    noise = np.random.default_rng(1).normal(0, 0.03, img.shape)
-    return save_png("sun_panel", np.clip(img + noise, 0, 1))
-
-
-def leaf_panel():
-    H_, W_ = 1024, 256
-    yy, xx = np.mgrid[0:H_, 0:W_]
-    img = np.zeros((H_, W_, 3))
-    img[:] = (0.18, 0.5, 0.32)
-    dots = ((xx % 64 - 32) ** 2 + (yy % 80 - 40) ** 2) < 110
-    img[dots] = (0.95, 0.88, 0.7)
-    img[(xx < 14) | (xx > W_ - 14)] = (0.92, 0.9, 0.82)
-    return save_png("leaf_panel", img)
+    img[..., :3] = TEAL
+    img[..., 3] = r < R0
+    img[(r > R0 - 0.13 * PX) & (r < R0), :3] = TEAL_D
+    for k in range(25):
+        a = math.pi * (k + 0.5) / 25
+        disc(img, cx + math.cos(a) * (R0 - 0.065 * PX), cy - math.sin(a) * (R0 - 0.065 * PX), 0.035 * PX, (0.97, 0.95, 0.9))
+    sy = cy - 0.62 * PX
+    rr, a = np.hypot(xx - cx, yy - sy), np.arctan2(yy - sy, xx - cx)
+    f = a / TAU * 18
+    tri = 1 - np.abs((f % 1) - 0.5) * 2
+    long = np.where(np.floor(f) % 2 == 0, 1.0, 0.6)
+    img[rr < 0.2 * PX + 0.36 * PX * tri ** 2 * long, :3] = (0.96, 0.76, 0.2)
+    img[rr < 0.2 * PX, :3] = (0.98, 0.83, 0.32)
+    img[..., :3] += rngp.normal(0, 0.02, (h_, w_, 1))
+    return save_rgba("stage_sun", img)
 
 
 stage = empty("stage", P, loc=(7, 17, ground_z(7, 17) - 0.05), rz=0.12)
+M_POST = flat("post_wood", (0.24, 0.15, 0.09), rough=0.6)
 mesh_obj("deck", bm_box(6.0, 3.2, 0.5), flat("wagon_green", (0.07, 0.36, 0.26), rough=0.55, coat=0.2), P, stage, loc=(0, 0, 0.25), bevel=0.02)
-m_sun = image_mat("sun_panel", painted_panel(), rough=0.7)
-m_leaf = image_mat("leaf_panel", leaf_panel(), rough=0.7)
-M_TRIM_RED = flat("trim_teal", (0.08, 0.36, 0.52), rough=0.5)
+M_LILAC = flat("lilac", (0.66, 0.58, 0.82), rough=0.6)
+for hgt, yo in ((0.38, -1.78), (0.25, -2.12), (0.12, -2.46)):
+    mesh_obj("step", bm_box(1.3, 0.34, hgt), M_LILAC, P, stage, loc=(-2.0, yo, hgt / 2), bevel=0.01)
+FY, BY, X2 = -0.3, 1.1, 2.38
+mesh_obj("front", bm_plane(4.6, 3.1), alpha_mat("stage_front", front_panel()), P, stage, loc=(0, FY, 0.5 + 1.55), rot=(math.pi / 2, 0, 0))
+mesh_obj("sun_arch", bm_plane(3.0, 1.5), alpha_mat("stage_sun", sun_arch()), P, stage, loc=(0, FY, 0.5 + 3.1 + 0.75), rot=(math.pi / 2, 0, 0))
+M_SIDE = flat("side_green", GREEN_D, rough=0.7)
 for sx in (-1, 1):
-    mesh_obj("pillar", bm_box(0.7, 0.3, 3.6), m_leaf, P, stage, loc=(sx * 2.45, 0.9, 2.3), bevel=0.02)
-arch = mesh_obj("arch", bm_torus(2.45, 0.16, 48, 12, math.pi), M_TRIM_RED, P, stage, loc=(0, 0.9, 4.1), rot=(math.pi / 2, 0, 0), smooth_shade=True)
-bm = bmesh.new()
-cverts = [bm.verts.new((0, 0, 0))] + [bm.verts.new((2.3 * math.cos(math.pi * i / 48), 2.3 * math.sin(math.pi * i / 48), 0)) for i in range(49)]
-uvl = bm.loops.layers.uv.new()
-for i in range(48):
-    f = bm.faces.new((cverts[0], cverts[i + 1], cverts[i + 2]))
-    for lp in f.loops:
-        lp[uvl].uv = (0.5 + lp.vert.co.x / 4.6, lp.vert.co.y / 2.3 * 0.95)
-mesh_obj("sun", bm, m_sun, P, stage, loc=(0, 1.0, 4.1), rot=(math.pi / 2, 0, 0))
+    mesh_obj("side", bm_box(0.04, BY - FY, 3.1), M_SIDE, P, stage, loc=(sx * X2, (FY + BY) / 2, 0.5 + 1.55))
+    for yv in (FY - 0.03, BY):
+        mesh_obj("post", bm_cyl(0.05, 0.05, 4.3, 12), M_POST, P, stage, loc=(sx * X2, yv, 0.5 + 2.15))
+        mesh_obj("knob", bm_sphere(0.085, 16, 8), M_POST, P, stage, loc=(sx * X2, yv, 0.5 + 4.38), smooth_shade=True)
+    mesh_obj("rail", bm_box(0.06, BY - FY, 0.06), M_POST, P, stage, loc=(sx * X2, (FY + BY) / 2, 0.5 + 3.1))
 M_STAGE_CURTAIN = pbr("stage_curtain", "velour_velvet", scale=3, hsv=(0.5, 0.0, 1.8), tint=(0.12, 0.34, 0.66), sheen=0.8)
-for name, w_, x0, depth in (("back_cloth", 4.6, 0.0, 0.06), ("drape_l", 1.0, -1.85, 0.12), ("drape_r", 1.0, 1.85, 0.12)):
-    cb = bm_plane(w_, 3.4, 40, 8)
+for sx in (-1, 1):
+    cb = bm_plane(0.6, 2.5, 24, 8)
     for vv in cb.verts:
-        vv.co.z += math.sin(vv.co.x * 18) * depth * 0.5
-    y0 = 1.05 if name == "back_cloth" else 0.7
-    mesh_obj(name, cb, M_STAGE_CURTAIN, P, stage, loc=(x0, y0, 2.35), rot=(math.pi / 2, 0, 0), smooth_shade=True).modifiers.new("s", "SOLIDIFY").thickness = 0.01
+        vv.co.z += math.sin(vv.co.x * 40) * 0.035
+        vv.co.x *= 1 - 0.35 * max(0.0, -vv.co.y / 1.25)  # gathered toward the bottom
+    mesh_obj("drape", cb, M_STAGE_CURTAIN, P, stage, loc=(sx * 0.68, FY + 0.12, 0.5 + 1.25), rot=(math.pi / 2, 0, 0), smooth_shade=True).modifiers.new("s", "SOLIDIFY").thickness = 0.01
+# ribbon pole beside the stage
+mesh_obj("rpole", bm_cyl(0.03, 0.03, 4.2, 10), M_POST, P, stage, loc=(-3.4, -1.3, 2.1))
+for k, c in enumerate(((0.95, 0.75, 0.8), (0.7, 0.85, 0.95), (0.98, 0.9, 0.6), (0.75, 0.9, 0.75), (0.85, 0.75, 0.95), (0.97, 0.97, 0.95))):
+    mesh_obj("ribbon", bm_plane(0.12, 2.0), flat("ribbon%d" % k, c, rough=0.7, sheen=0.5), P, stage,
+             loc=(-3.4 + 0.08 * math.cos(k), -1.3 + 0.08 * math.sin(k), 4.2 - 1.2), rot=(math.pi / 2, 0.08 * (k - 2.5), k * 1.05))
 
 
-def dome_tent(name, loc, r=1.3, h=1.25, rz=0.0):
+TENT_MINT = pbr("tent_mint", "rough_linen", scale=2.0, hsv=(0.5, 0.0, 1.6), tint=(0.6, 0.86, 0.8), sheen=0.4)
+TENT_PINK = pbr("tent_pink", "rough_linen", scale=2.0, hsv=(0.5, 0.0, 1.6), tint=(0.94, 0.7, 0.72), sheen=0.4)
+TENT_SKY = pbr("tent_sky", "rough_linen", scale=2.0, hsv=(0.5, 0.0, 1.6), tint=(0.78, 0.88, 0.95), sheen=0.4)
+M_FLAP = flat("tentdoor", (0.2, 0.16, 0.12), rough=0.9)
+
+
+def dome_tent(name, loc, r=1.3, h=1.25, rz=0.0, mat=M_LINEN):
     g = empty(name, P, loc=(loc[0], loc[1], ground_z(*loc) - 0.05), rz=rz)
     bm = bm_sphere(r, 48, 24)
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < -0.001], context="VERTS")
     bmesh.ops.scale(bm, vec=(1, 1, h / r), verts=bm.verts)
     for v in bm.verts:
         a = math.atan2(v.co.y, v.co.x)
-        v.co.x *= 1 - 0.03 * (math.cos(a * 8) ** 2) * (1 - v.co.z / h)
-        v.co.y *= 1 - 0.03 * (math.cos(a * 8) ** 2) * (1 - v.co.z / h)
-    t = mesh_obj("dome", bm, M_LINEN, P, g, smooth_shade=True)
+        v.co.x *= 1 - 0.04 * (math.cos(a * 8) ** 2) * (1 - v.co.z / h)
+        v.co.y *= 1 - 0.04 * (math.cos(a * 8) ** 2) * (1 - v.co.z / h)
+    t = mesh_obj("dome", bm, mat, P, g, smooth_shade=True)
     t.modifiers.new("s", "SOLIDIFY").thickness = 0.01
-    mesh_obj("door", bm_box(0.7, 0.05, 0.95), flat("tentdoor", (0.18, 0.14, 0.1), rough=0.9), P, g, loc=(0, -r + 0.06, 0.48))
+    mesh_obj("door", bm_box(0.7, 0.05, 0.95), M_FLAP, P, g, loc=(0, -r + 0.06, 0.48))
     return g
 
 
-def bell_tent(name, loc, r=2.2, wall=0.7, h=2.8, rz=0.0):
+def cabin_tent(name, loc, w, d, wall, ridge, mat, rz=0.0, awning=0.0):
+    """Canvas cabin tent: short walls, a sagging ridge roof running front to back, optional front awning."""
     g = empty(name, P, loc=(loc[0], loc[1], ground_z(*loc) - 0.05), rz=rz)
-    prof = [(r, 0.0), (r, wall), (r * 0.97, wall + 0.08)] + [(r * (1 - t) ** 1.15 + 0.05, wall + 0.08 + (h - wall - 0.08) * t) for t in np.linspace(0.05, 1, 12)]
-    t = mesh_obj("bell", bm_lathe(prof, 64, lambda a, z: 0.012 * math.sin(a * 12) * (z < 0.8)), M_LINEN, P, g, smooth_shade=True)
+    bm = bmesh.new()
+    hw, hd = w / 2, d / 2
+    V = bm.verts.new
+    a0, a1, a2, a3 = V((-hw, -hd, 0)), V((hw, -hd, 0)), V((hw, hd, 0)), V((-hw, hd, 0))
+    b0, b1, b2, b3 = V((-hw, -hd, wall)), V((hw, -hd, wall)), V((hw, hd, wall)), V((-hw, hd, wall))
+    r0, r1 = V((0, -hd, ridge)), V((0, hd, ridge))
+    for f in ((a0, a1, b1, r0, b0), (a2, a3, b3, r1, b2), (a1, a2, b2, b1), (a3, a0, b0, b3), (b0, r0, r1, b3), (r0, b1, b2, r1)):
+        bm.faces.new(f)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) == 5])
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=6, use_grid_fill=True)
+    for v in bm.verts:
+        u = (v.co.y + hd) / d
+        if v.co.z > wall * 0.95:
+            v.co.z -= 0.07 * math.sin(math.pi * u) * (1 - abs(v.co.x) / hw * 0.5)
+        else:
+            v.co.x *= 1 + 0.015 * math.sin(v.co.z * 7 + v.co.y * 3)
+    t = mesh_obj("cabin", bm, mat, P, g, smooth_shade=True)
     t.modifiers.new("s", "SOLIDIFY").thickness = 0.01
-    mesh_obj("pole", bm_cyl(0.04, 0.04, h + 0.4, 10), M_WOOD, P, g, loc=(0, 0, (h + 0.4) / 2))
-    mesh_obj("bdoor", bm_box(0.9, 0.05, 1.3), flat("belldoor", (0.2, 0.15, 0.1), rough=0.9), P, g, loc=(0, -r + 0.02, 0.62))
+    mesh_obj("flap", bm_plane(0.8, 1.35), M_FLAP, P, g, loc=(0, -hd - 0.015, 0.68), rot=(math.pi / 2, 0, 0))
+    if awning:
+        tilt = 0.28
+        mesh_obj("awning", bm_plane(w * 0.85, awning, 8, 4), mat, P, g, loc=(0, -hd - awning / 2 * math.cos(tilt), wall + 0.1 - awning / 2 * math.sin(tilt)), rot=(tilt, 0, 0)).modifiers.new("s", "SOLIDIFY").thickness = 0.01
+        for sx in (-1, 1):
+            hz = wall + 0.1 - awning * math.sin(tilt)
+            mesh_obj("apole", bm_cyl(0.025, 0.025, hz, 8), M_POST, P, g, loc=(sx * w * 0.4, -hd - awning * math.cos(tilt), hz / 2))
     return g
 
 
-def teepee(name, loc, r=1.7, h=4.0, rz=0.0):
+def teepee(name, loc, r=1.7, h=4.0, rz=0.0, mat=M_LINEN):
     g = empty(name, P, loc=(loc[0], loc[1], ground_z(*loc) - 0.05), rz=rz)
     prof = [(r * (1 - t) + 0.02, h * 0.85 * t) for t in np.linspace(0, 1, 10)]
-    t = mesh_obj("cone", bm_lathe(prof, 48, lambda a, z: 0.02 * math.sin(a * 9)), M_LINEN, P, g, smooth_shade=True)
+    t = mesh_obj("cone", bm_lathe(prof, 48, lambda a, z: 0.02 * math.sin(a * 9)), mat, P, g, smooth_shade=True)
     t.modifiers.new("s", "SOLIDIFY").thickness = 0.01
     for i in range(9):
         a = TAU * i / 9
         p0 = Vector((math.cos(a) * r * 1.02, math.sin(a) * r * 1.02, 0))
         p1 = Vector((-math.cos(a) * 0.35, -math.sin(a) * 0.35, h))
         seg = p1 - p0
-        c = mesh_obj("tpole", bm_cyl(0.03, 0.025, seg.length, 8), M_WOOD, P, g, loc=(p0 + p1) / 2)
+        c = mesh_obj("tpole", bm_cyl(0.03, 0.025, seg.length, 8), M_POST, P, g, loc=(p0 + p1) / 2)
         c.rotation_euler = seg.to_track_quat("Z", "Y").to_euler()
-    mesh_obj("band", bm_cyl(r * 0.58, r * 0.53, 0.25, 48), flat("band", (0.75, 0.25, 0.16), rough=0.8), P, g, loc=(0, 0, h * 0.85 * 0.43))
     return g
 
 
-dome_tent("tent1", (15.5, 10.5), rz=0.5)
-dome_tent("tent2", (18.5, 15.0), r=1.1, h=1.05, rz=0.3)
-dome_tent("tent3", (-4.5, 18.5), r=1.0, h=0.95, rz=-0.4)
-bell_tent("bell", (-1.0, 11.5), rz=-0.2)
-teepee("teepee", (13.0, 22.5))
-# bunting across the camp
+# pastel camp on the sand behind the meadow, as in the MV
+cabin_tent("tent_mint", (-3.0, 25.0), 3.4, 2.8, 1.1, 2.3, TENT_MINT, rz=0.25, awning=1.4)
+cabin_tent("tent_pink", (1.8, 28.0), 3.0, 2.6, 1.0, 2.1, TENT_PINK, rz=-0.15)
+cabin_tent("tent_pink2", (5.8, 29.5), 2.4, 2.2, 0.9, 1.8, TENT_PINK, rz=0.35)
+dome_tent("dome_white", (-7.5, 27.0), r=1.6, h=1.4, rz=0.3)
+dome_tent("dome_sky", (10.5, 27.5), r=1.3, h=1.2, rz=-0.4, mat=TENT_SKY)
+teepee("teepee", (2.0, 20.5), r=1.5, h=3.6, mat=TENT_SKY)
+# bunting strung over the camp
 flag_cols = [(0.12, 0.6, 0.7), (0.95, 0.75, 0.2), (0.8, 0.25, 0.18), (0.95, 0.92, 0.85), (0.25, 0.55, 0.3)]
-for (ax, ay, bx, by) in ((-1.0, 11.5, 7.0, 15.4), (9.5, 15.0, 15.5, 10.5)):
+for (ax, ay, bx, by) in ((-3.0, 25.0, 1.8, 28.0), (1.8, 28.0, 5.8, 29.5), (4.6, 16.7, 2.0, 20.5)):
     pa = Vector((ax, ay, ground_z(ax, ay) + 3.0))
     pb = Vector((bx, by, ground_z(bx, by) + 3.4))
     prev = None
