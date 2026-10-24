@@ -347,7 +347,9 @@ for mid in sorted({m for v in PLANTS.values() for m in v}) + ["Sofa_01", "ArmCha
             "vintage_grandfather_clock_01", "vintage_oil_lamp", "wooden_table_02", "painted_wooden_chair_01"] + ROOM_PROPS:
     import_model(mid)
 for mid in PLANTS["grass"]:
-    recolor(mid, lambda n: True, hsv=(0.53, 1.35, 1.15))
+    recolor(mid, lambda n: True, hsv=(0.56, 1.6, 1.35), tint=(0.3, 0.55, 0.12, 0.35))
+import_model("tree_small_02")
+recolor("tree_small_02", lambda n: "leaf" in n or "leaves" in n or "foliage" in n, tint=(0.95, 0.7, 0.12, 0.75))
 
 # ---------------------------------------------------------------- shared materials
 M_LINEN = pbr("canvas", "rough_linen", scale=2.0, tint=(0.97, 0.95, 0.9), sheen=0.4)
@@ -403,7 +405,7 @@ def world_from_hdr(name, hdr_path, strength, sun_az_deg, min_elev=8, tint=None):
 
 
 # ================================================================== PARADISE (Bàu Trắng, Mũi Né)
-W_DAY = world_from_hdr("day", os.path.join(ASSETS, "h", "rustig_koppie_puresky_8k.hdr"), 1.0, sun_az_deg=-125)
+W_DAY = world_from_hdr("day", os.path.join(ASSETS, "h", "qwantani_late_afternoon_puresky_8k.hdr"), 1.0, sun_az_deg=-125, tint=(0.9, 0.98, 1.12))
 W_GOLD = world_from_hdr("golden", os.path.join(ASSETS, "h", "qwantani_sunset_puresky_8k.hdr"), 1.1, sun_az_deg=160, min_elev=10)
 P.world = W_DAY
 SUN_P = light(P, "SUN", "sun", 3.6, (1.0, 0.95, 0.86), (0, 0, 50))
@@ -431,7 +433,7 @@ Z, DUNE, LAKE = terrain(X, Y)
 dist = np.hypot(X - 4, Y + 10)
 patch = 0.5 + 0.5 * np.sin(X * 0.17 + np.sin(Y * 0.11) * 2.0) * np.cos(Y * 0.13 + X * 0.05)
 MEADOW = smooth(0.9 - DUNE, 0.0, 0.6) * (1 - smooth(LAKE, 0.02, 0.15)) * (1 - smooth(Y, 34, 46)) * (1 - smooth(dist, 75, 115))
-MEADOW = np.clip(MEADOW * (0.55 + 0.6 * patch), 0, 1)
+MEADOW = np.clip(MEADOW * (0.9 + 0.3 * patch), 0, 1)
 verts = np.stack([X.ravel(), Y.ravel(), Z.ravel()], 1).astype(np.float32)
 idx = np.arange((N + 1) * (N + 1)).reshape(N + 1, N + 1)
 quads = np.stack([idx[:-1, :-1], idx[:-1, 1:], idx[1:, 1:], idx[1:, :-1]], -1).reshape(-1, 4)
@@ -509,7 +511,7 @@ hs = node(nt, "ShaderNodeHueSaturation")
 hs.inputs["Saturation"].default_value = 0.3
 hs.inputs["Value"].default_value = 1.7
 nt.links.new(sand, hs.inputs["Color"])
-sand = mixc(1.0, hs.outputs["Color"], (1.0, 0.95, 0.87, 1), "MULTIPLY")
+sand = mixc(1.0, hs.outputs["Color"], (1.0, 0.93, 0.8, 1), "MULTIPLY")
 # large-scale tone variation so the white sand is never one flat colour
 vn = node(nt, "ShaderNodeTexNoise")
 vn.inputs["Scale"].default_value = 0.035
@@ -522,10 +524,11 @@ for k in ("Red", "Green", "Blue"):
     nt.links.new(vr.outputs["Result"], vc.inputs[k])
 sand = mixc(1.0, sand, vc.outputs["Color"], "MULTIPLY")
 gh = node(nt, "ShaderNodeHueSaturation")
-gh.inputs["Hue"].default_value = 0.55
-gh.inputs["Saturation"].default_value = 1.4
+gh.inputs["Hue"].default_value = 0.58
+gh.inputs["Saturation"].default_value = 1.7
+gh.inputs["Value"].default_value = 1.4
 nt.links.new(grs_d.outputs["Color"], gh.inputs["Color"])
-meadow_col = mixc(0.3, gh.outputs["Color"], mud_d.outputs["Color"])
+meadow_col = mixc(0.12, gh.outputs["Color"], mud_d.outputs["Color"])
 col = mixc(gattr("shore"), sand, damp_d.outputs["Color"])
 col = mixc(gattr("meadow"), col, meadow_col)
 nt.links.new(col, b.inputs["Base Color"])
@@ -624,11 +627,20 @@ def scatter(name, mids, density, mask, smin, smax, clump=0.0, seed=0, tilt=0.12,
     ground.modifiers.new(name, "NODES").node_group = ng
 
 
-scatter("grass", PLANTS["grass"], 24.0, "meadow", 0.55, 1.25, clump=0.18, seed=1, crange=(0.3, 0.5))
+scatter("grass", PLANTS["grass"], 45.0, "meadow", 0.45, 0.95, clump=0.18, seed=1, crange=(0.15, 0.35))
 scatter("bloom", PLANTS["bloom"], 0.25, "wild", 0.45, 0.9, clump=0.07, seed=2)
 scatter("edge", PLANTS["edge"], 0.5, "edge", 0.6, 1.4, clump=0.12, seed=3, tilt=0.3)
 scatter("dunefoot", PLANTS["dunefoot"], 0.03, "dunefoot", 0.8, 1.6, clump=0.05, seed=4)
 scatter("shore", PLANTS["shore"], 0.4, "shore", 0.6, 1.5, clump=0.1, seed=5, tilt=0.3)
+
+rng = np.random.default_rng(8)
+for cx, cy, n in ((-18, 27, 15), (-31, 23, 10), (24, 27, 12), (14, 33, 8)):
+    for i in range(n):
+        x, y = cx + rng.normal(0, 3.6), cy + rng.normal(0, 2.0)
+        t = terrain(np.array(x), np.array(y))
+        if float(t[2]) > 0.02:
+            continue
+        spawn("tree_small_02", P, loc=(x, y, float(t[0]) - 0.1), rz=rng.uniform(0, TAU), s=rng.uniform(0.95, 1.35))
 
 # --- festival camp ---------------------------------------------------------------
 def ground_z(x, y):
@@ -660,15 +672,15 @@ def leaf_panel():
     img[:] = (0.18, 0.5, 0.32)
     dots = ((xx % 64 - 32) ** 2 + (yy % 80 - 40) ** 2) < 110
     img[dots] = (0.95, 0.88, 0.7)
-    img[(xx < 14) | (xx > W_ - 14)] = (0.82, 0.25, 0.16)
+    img[(xx < 14) | (xx > W_ - 14)] = (0.92, 0.9, 0.82)
     return save_png("leaf_panel", img)
 
 
 stage = empty("stage", P, loc=(7, 17, ground_z(7, 17) - 0.05), rz=0.12)
-mesh_obj("deck", bm_box(6.0, 3.2, 0.5), M_WOOD, P, stage, loc=(0, 0, 0.25), bevel=0.02)
+mesh_obj("deck", bm_box(6.0, 3.2, 0.5), flat("wagon_green", (0.07, 0.36, 0.26), rough=0.55, coat=0.2), P, stage, loc=(0, 0, 0.25), bevel=0.02)
 m_sun = image_mat("sun_panel", painted_panel(), rough=0.7)
 m_leaf = image_mat("leaf_panel", leaf_panel(), rough=0.7)
-M_TRIM_RED = flat("trim_red", (0.75, 0.22, 0.14), rough=0.55)
+M_TRIM_RED = flat("trim_teal", (0.08, 0.36, 0.52), rough=0.5)
 for sx in (-1, 1):
     mesh_obj("pillar", bm_box(0.7, 0.3, 3.6), m_leaf, P, stage, loc=(sx * 2.45, 0.9, 2.3), bevel=0.02)
 arch = mesh_obj("arch", bm_torus(2.45, 0.16, 48, 12, math.pi), M_TRIM_RED, P, stage, loc=(0, 0.9, 4.1), rot=(math.pi / 2, 0, 0), smooth_shade=True)
@@ -680,14 +692,13 @@ for i in range(48):
     for lp in f.loops:
         lp[uvl].uv = (0.5 + lp.vert.co.x / 4.6, lp.vert.co.y / 2.3 * 0.95)
 mesh_obj("sun", bm, m_sun, P, stage, loc=(0, 1.0, 4.1), rot=(math.pi / 2, 0, 0))
-mesh_obj("back_cloth", bm_plane(4.6, 3.4, 20, 6), M_LINEN, P, stage, loc=(0, 1.05, 2.35), rot=(math.pi / 2, 0, 0))
-for i, c in enumerate(((0.12, 0.6, 0.7), (0.95, 0.75, 0.2), (0.8, 0.25, 0.18), (0.25, 0.55, 0.3))):
-    x = -2.2 + i * 1.45
-    mesh_obj("fpole", bm_cyl(0.03, 0.03, 3.2, 10), M_WOOD, P, stage, loc=(x, -1.4, 1.6))
-    fb = bm_plane(0.9, 0.55, 12, 4)
-    for vv in fb.verts:
-        vv.co.z += math.sin((vv.co.x + 0.45) * 7) * 0.05 * (vv.co.x + 0.45)
-    mesh_obj("flag", fb, flat("flag%d" % i, c, rough=0.8, sheen=0.4), P, stage, loc=(x + 0.46, -1.4, 2.9), rot=(math.pi / 2, 0, 0.2), smooth_shade=True).modifiers.new("s", "SOLIDIFY").thickness = 0.004
+M_STAGE_CURTAIN = pbr("stage_curtain", "velour_velvet", scale=3, hsv=(0.5, 0.0, 1.8), tint=(0.12, 0.34, 0.66), sheen=0.8)
+for name, w_, x0, depth in (("back_cloth", 4.6, 0.0, 0.06), ("drape_l", 1.0, -1.85, 0.12), ("drape_r", 1.0, 1.85, 0.12)):
+    cb = bm_plane(w_, 3.4, 40, 8)
+    for vv in cb.verts:
+        vv.co.z += math.sin(vv.co.x * 18) * depth * 0.5
+    y0 = 1.05 if name == "back_cloth" else 0.7
+    mesh_obj(name, cb, M_STAGE_CURTAIN, P, stage, loc=(x0, y0, 2.35), rot=(math.pi / 2, 0, 0), smooth_shade=True).modifiers.new("s", "SOLIDIFY").thickness = 0.01
 
 
 def dome_tent(name, loc, r=1.3, h=1.25, rz=0.0):
@@ -800,7 +811,7 @@ hm.use_nodes = True
 hnt = hm.node_tree
 hnt.nodes.remove(hnt.nodes["Principled BSDF"])
 hv = node(hnt, "ShaderNodeVolumePrincipled")
-hv.inputs["Density"].default_value = 0.0005
+hv.inputs["Density"].default_value = 0.00025
 hv.inputs["Color"].default_value = (0.86, 0.92, 1.0, 1)
 hnt.links.new(hv.outputs[0], hnt.nodes["Material Output"].inputs["Volume"])
 haze.data.materials.append(hm)
@@ -1042,6 +1053,10 @@ samples = int(ARGS.get("--samples", 256))
 setup(P, samples)
 setup(R, int(samples * 1.5))
 P.view_settings.exposure = 0.0
+try:
+    P.view_settings.look = "AgX - Medium High Contrast"
+except Exception:
+    pass
 R.view_settings.exposure = 0.85
 
 if ARGS.get("--save"):

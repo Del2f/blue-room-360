@@ -6,7 +6,9 @@
 
 | 종류 | 에셋 | 쓰인 곳 |
 |---|---|---|
-| HDRI 하늘 | rustig_koppie_puresky (8K) | 낮 장면 F1·F3, 방 창밖 하늘과 햇빛 |
+| HDRI 하늘 | qwantani_late_afternoon_puresky (8K) | 낮 장면 F1·F3과 방 창밖 풍경 (MV의 맑은 늦은 오후) |
+| HDRI 하늘 | rustig_koppie_puresky (8K) | 방 안으로 드는 햇빛과 하늘빛 |
+| 나무 | tree_small_02 (잎을 금빛으로 재채색) | MV의 노란 덤불 군락 |
 | HDRI 하늘 | qwantani_sunset_puresky (8K) | 늦은 오후 F2 |
 | 텍스처 | aerial_beach_01 (4K) | 사구의 30m 단위 바람 자국 |
 | 텍스처 | coast_sand_01, damp_beach_sand, brown_mud_02, sparse_grass | 고운 모래, 호숫가 젖은 모래, 습지 흙, 초원 바닥 |
