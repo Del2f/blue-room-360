@@ -1,0 +1,12 @@
+{
+ "version": 3,
+ "note": "Paradise layout (meadow, lake and dunes after the MV and the Mui Ne photos). terrain/trees/plants override the code's defaults; objects = moves away from the code's positions.",
+ "viewpoint": [
+  2.0,
+  4.0
+ ],
+ "sky": "syferfontein_18d_clear_puresky_8k.hdr",
+ "sun_az": 20,
+ "haze": 0.00014,
+ "objects": {}
+}

@@ -2,11 +2,15 @@
 
     blender -b --factory-startup -P pitch_frames.py -- --work <dir> --cover <cover.jpg> --out <frames dir>
         [--frames F1,F2,...] [--samples 256] [--w 1920 --h 1080] [--save 1]
+        [--layout layout.json] [--layout-blend <file.blend>]
+
+Object positions in the paradise and the terrain shape come from layout.json (next to this script by
+default), which the Blender layout file edits; --layout-blend builds that file instead of rendering.
 
 <dir>/assets holds the Poly Haven CC0 downloads. Builds both scenes, then renders the
 requested frames as JPEG. Blender is Z-up; the dune wall lies to +Y, the lake to -X.
 """
-import bpy, bmesh, math, os, sys
+import bpy, bmesh, json, math, os, sys
 import numpy as np
 from mathutils import Vector, Matrix
 
@@ -18,6 +22,13 @@ COVER = ARGS["--cover"]
 OUTDIR = ARGS["--out"]
 os.makedirs(OUTDIR, exist_ok=True)
 TAU = math.tau
+SCRIPT_DIR = os.path.dirname(os.path.abspath(sys.argv[sys.argv.index("-P") + 1] if "-P" in sys.argv else __file__))
+sys.path.insert(0, SCRIPT_DIR)
+import terrain as TR  # noqa: E402
+LAYOUT_PATH = os.path.abspath(ARGS.get("--layout", os.path.join(SCRIPT_DIR, "layout.json")))
+LAYOUT = json.load(open(LAYOUT_PATH, encoding="utf-8")) if os.path.exists(LAYOUT_PATH) else {}
+TER = TR.params(LAYOUT.get("terrain"))
+print("LAYOUT", LAYOUT_PATH if LAYOUT else "(none, defaults)")
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 LIB = bpy.context.scene
@@ -27,6 +38,30 @@ R = bpy.data.scenes.new("ROOM")
 
 
 # ---------------------------------------------------------------- generic helpers
+def ram(label):
+    """Print this Blender process's RAM now and at peak (Windows), to keep an eye on scene weight."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class PMC(ctypes.Structure):
+            _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD)] +                        [(k, ctypes.c_size_t) for k in ("PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage",
+                                                       "QuotaPagedPoolUsage", "QuotaPeakNonPagedPoolUsage",
+                                                       "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage")]
+        pmc = PMC()
+        pmc.cb = ctypes.sizeof(pmc)
+        k32 = ctypes.WinDLL("kernel32")
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        gpmi = ctypes.WinDLL("psapi").GetProcessMemoryInfo
+        gpmi.argtypes = (wintypes.HANDLE, ctypes.POINTER(PMC), wintypes.DWORD)
+        gpmi(k32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb)
+        print("RAM %-22s now %.1f GB, peak %.1f GB" % (label, pmc.WorkingSetSize / 2 ** 30, pmc.PeakWorkingSetSize / 2 ** 30))
+    except Exception as e:
+        print("RAM unknown:", e)
+
+
 def smooth(x, a, b):
     t = np.clip((np.asarray(x, dtype=np.float64) - a) / (b - a), 0.0, 1.0)
     return t * t * (3 - 2 * t)
@@ -270,22 +305,30 @@ def light(scene, kind, name, energy, color, loc, rot=(0, 0, 0), size=0.1, parent
 LIBM = {}
 
 
-def import_model(mid):
+def import_model(mid, rz=0.0, scale=1.0, key=None):
+    """rz/scale correct a source model's own heading and units (Sketchfab files vary). key stores a second,
+    separately coloured copy of a model (its own materials) under another name."""
     folder = os.path.join(ASSETS, "m", mid)
     path = os.path.join(folder, next(f for f in sorted(os.listdir(folder)) if f.endswith(".gltf")))
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=path)
     new = [o for o in bpy.data.objects if o not in before]
     bpy.context.view_layer.update()
+    if rz or scale != 1.0:
+        fix = Matrix.Rotation(rz, 4, "Z") @ Matrix.Scale(scale, 4)
+        for o in new:
+            if o.parent is None:
+                o.matrix_world = fix @ o.matrix_world
+        bpy.context.view_layer.update()
     pts = [o.matrix_world @ Vector(c) for o in new if o.type == "MESH" for c in o.bound_box]
     mn = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
     mx = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
-    LIBM[mid] = {"objs": new, "mn": mn, "mx": mx}
+    LIBM[key or mid] = {"objs": new, "mn": mn, "mx": mx}
 
 
-def spawn(mid, scene, parent=None, loc=(0, 0, 0), rz=0.0, s=1.0):
+def spawn(mid, scene, parent=None, loc=(0, 0, 0), rz=0.0, s=1.0, name=None):
     L = LIBM[mid]
-    holder = empty(mid, scene, parent=parent)
+    holder = empty(name or mid, scene, parent=parent)
     mapping = {o: o.copy() for o in L["objs"]}
     for o, c in mapping.items():
         scene.collection.objects.link(c)
@@ -334,10 +377,10 @@ def recolor(mid, test, hsv=None, tint=None):
 
 PLANTS = {
     "grass": ["grass_medium_01", "grass_medium_02", "grass_bermuda_01"],
-    "bloom": ["didelta_spinosa", "flower_gazania", "flower_ursinia", "shrub_01", "shrub_04"],
-    "edge": ["crystalline_iceplant", "sand_rocks_small_01", "namaqualand_stones_01", "dry_branches_medium_01"],
-    "dunefoot": ["searsia_lucida", "shrub_02", "wild_rooibos_bush", "didelta_spinosa"],
-    "shore": ["rock_moss_set_02", "sand_rocks_small_01", "grass_medium_02"],
+    "bloom": ["flower_empodium", "flower_stinkkruid", "flower_gazania", "didelta_spinosa"],
+    "edge": ["crystalline_iceplant", "dry_branches_medium_01", "flower_ursinia"],
+    "dunefoot": ["shrub_04", "shrub_01", "searsia_burchellii", "wild_rooibos_bush", "searsia_lucida"],
+    "shore": ["rock_moss_set_02", "grass_medium_02"],
 }
 GREEN_GRASS = True
 ROOM_PROPS = ["Ukulele_01", "chess_set", "throw_pillows_01", "brass_candleholders", "standing_picture_frame_01",
@@ -346,10 +389,78 @@ for mid in sorted({m for v in PLANTS.values() for m in v}) + ["Sofa_01", "ArmCha
             "GothicBed_01", "ClassicNightstand_01", "painted_wooden_cabinet", "fancy_picture_frame_01", "fancy_picture_frame_02",
             "vintage_grandfather_clock_01", "vintage_oil_lamp", "wooden_table_02", "painted_wooden_chair_01"] + ROOM_PROPS:
     import_model(mid)
+ram("assets imported")
 for mid in PLANTS["grass"]:
-    recolor(mid, lambda n: True, hsv=(0.56, 1.6, 1.35), tint=(0.3, 0.55, 0.12, 0.35))
-import_model("tree_small_02")
-recolor("tree_small_02", lambda n: "leaf" in n or "leaves" in n or "foliage" in n, tint=(0.95, 0.7, 0.12, 0.75))
+    recolor(mid, lambda n: True, hsv=(0.56, 1.35, 1.15), tint=(0.28, 0.52, 0.2, 0.3))   # the MV's cool, deep meadow green
+# round sage bushes on the red dunes (Mui Ne photo): dusty grey-green
+for mid in ("shrub_04", "shrub_01", "searsia_burchellii"):
+    recolor(mid, lambda n: not any(k in n for k in ("bark", "trunk", "branch", "stem", "wood")), tint=(0.46, 0.53, 0.4, 0.55))
+# the MV's golden flowering shrubs: dense, rounded searsia clumps (a second copy, so the sage ones keep their colour)
+import_model("searsia_burchellii", key="golden_bush")
+recolor("golden_bush", lambda n: not any(k in n for k in ("bark", "trunk", "branch", "stem", "wood")), hsv=(0.5, 0.7, 1.35), tint=(1.0, 0.7, 0.06, 0.85))
+
+
+def make_patches(key, mids, n_var=4, size=1.6, per_m2=30.0, smin=0.5, smax=1.05, tilt=0.12):
+    """Pre-merged turf patches: per_m2 tufts of mids on a size x size square, realized into one mesh, n_var
+    variants. Scattering patches instead of single tufts cuts the instance count ~per_m2*size^2 times; each
+    Cycles instance costs ~10 KB of RAM, so this is what keeps a lush meadow light."""
+    col = bpy.data.collections.new(key + "_src")
+    for mid in mids:
+        for o in LIBM[mid]["objs"]:
+            if o.type == "MESH":
+                col.objects.link(o)
+    objs = []
+    for v in range(n_var):
+        ng = bpy.data.node_groups.new("patch_%s_%d" % (key, v), "GeometryNodeTree")
+        ng.interface.new_socket(name="Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
+        ng.interface.new_socket(name="Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+        N, L = ng.nodes.new, ng.links.new
+        go = N("NodeGroupOutput")
+        grid = N("GeometryNodeMeshGrid")
+        grid.inputs["Size X"].default_value = grid.inputs["Size Y"].default_value = size
+        dist = N("GeometryNodeDistributePointsOnFaces")
+        dist.inputs["Density"].default_value = per_m2
+        dist.inputs["Seed"].default_value = 101 + v
+        ci = N("GeometryNodeCollectionInfo")
+        ci.inputs["Collection"].default_value = col
+        ci.inputs["Separate Children"].default_value = True
+        ci.inputs["Reset Children"].default_value = True
+        iop = N("GeometryNodeInstanceOnPoints")
+        iop.inputs["Pick Instance"].default_value = True
+        rv = N("FunctionNodeRandomValue")
+        rv.data_type = "FLOAT_VECTOR"
+        [x for x in rv.inputs if x.name == "Max" and x.type == "VECTOR"][0].default_value = (tilt, tilt, TAU)
+        [x for x in rv.inputs if x.name == "Min" and x.type == "VECTOR"][0].default_value = (-tilt, -tilt, 0)
+        [x for x in rv.inputs if x.name == "Seed"][0].default_value = 211 + v
+        rs = N("FunctionNodeRandomValue")
+        rs.data_type = "FLOAT"
+        [x for x in rs.inputs if x.name == "Min" and x.type == "VALUE"][0].default_value = smin
+        [x for x in rs.inputs if x.name == "Max" and x.type == "VALUE"][0].default_value = smax
+        [x for x in rs.inputs if x.name == "Seed"][0].default_value = 307 + v
+        real = N("GeometryNodeRealizeInstances")
+        L(grid.outputs["Mesh"], dist.inputs["Mesh"])
+        L(dist.outputs["Points"], iop.inputs["Points"])
+        L(ci.outputs[0], iop.inputs["Instance"])
+        L([x for x in rv.outputs if x.type == "VECTOR"][0], iop.inputs["Rotation"])
+        L([x for x in rs.outputs if x.type == "VALUE"][0], iop.inputs["Scale"])
+        L(iop.outputs[0], real.inputs[0])
+        L(real.outputs[0], go.inputs[0])
+        helper = bpy.data.objects.new("patch_helper", bpy.data.meshes.new("patch_helper"))
+        LIB.collection.objects.link(helper)
+        helper.modifiers.new("patch", "NODES").node_group = ng
+        dg = bpy.context.evaluated_depsgraph_get()
+        me = bpy.data.meshes.new_from_object(helper.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg)
+        me.name = "%s_%d" % (key, v)
+        bpy.data.objects.remove(helper)
+        bpy.data.node_groups.remove(ng)
+        objs.append(bpy.data.objects.new(me.name, me))
+    bpy.data.collections.remove(col)
+    LIBM[key] = {"objs": objs, "mn": Vector((-size / 2, -size / 2, 0)), "mx": Vector((size / 2, size / 2, smax))}
+    print("PATCHES", key, n_var, "x", len(objs[0].data.polygons), "faces")
+
+
+GRASS_PATCH = 1.6 * 1.6 * 30.0   # tufts per patch
+make_patches("grass_patch", PLANTS["grass"])
 
 # ---------------------------------------------------------------- shared materials
 M_LINEN = pbr("canvas", "rough_linen", scale=2.0, tint=(0.97, 0.95, 0.9), sheen=0.4)
@@ -361,7 +472,7 @@ M_WHITE = flat("white_paint", (0.92, 0.92, 0.9), rough=0.4)
 
 
 # ---------------------------------------------------------------- world helpers
-def world_from_hdr(name, hdr_path, strength, sun_az_deg, min_elev=8, tint=None):
+def world_from_hdr(name, hdr_path, strength, sun_az_deg, min_elev=8, tint=None, camera_grade=None):
     img = load_img(hdr_path)
     w_, h_ = img.size
     px = np.empty(w_ * h_ * 4, np.float32)
@@ -389,51 +500,89 @@ def world_from_hdr(name, hdr_path, strength, sun_az_deg, min_elev=8, tint=None):
     mp.inputs["Rotation"].default_value = (0, 0, rot)
     nt.links.new(tc.outputs["Generated"], mp.inputs["Vector"])
     nt.links.new(mp.outputs["Vector"], env.inputs["Vector"])
+    sky = env.outputs["Color"]
     if tint:
         mx, ta, tb, tout = mix_rgb(nt, "MULTIPLY")
         mx.inputs[0].default_value = 1.0
-        nt.links.new(env.outputs["Color"], ta)
+        nt.links.new(sky, ta)
         tb.default_value = (*tint, 1)
-        nt.links.new(tout, bg.inputs["Color"])
-    else:
-        nt.links.new(env.outputs["Color"], bg.inputs["Color"])
+        sky = tout
+    nt.links.new(sky, bg.inputs["Color"])
     bg.inputs["Strength"].default_value = strength
-    nt.links.new(bg.outputs[0], out.inputs["Surface"])
+    if camera_grade:
+        # what the camera sees of the sky gets the MV's clear cyan; the light the sky casts stays as photographed
+        hs = node(nt, "ShaderNodeHueSaturation")
+        hs.inputs["Saturation"].default_value = camera_grade.get("sat", 1.6)
+        nt.links.new(sky, hs.inputs["Color"])
+        gm, ga, gb, gout = mix_rgb(nt, "MULTIPLY")
+        gm.inputs[0].default_value = 1.0
+        nt.links.new(hs.outputs["Color"], ga)
+        gb.default_value = (*camera_grade.get("tint", (0.86, 1.0, 1.06)), 1)
+        gain = node(nt, "ShaderNodeVectorMath", operation="SCALE")
+        nt.links.new(gout, gain.inputs[0])
+        gain.inputs["Scale"].default_value = camera_grade.get("gain", 1.0)
+        # the sun and its bright halo keep their photographed level, or the halation swallows a quarter of the sky
+        bw = node(nt, "ShaderNodeRGBToBW")
+        nt.links.new(sky, bw.inputs[0])
+        hot = node(nt, "ShaderNodeMapRange", interpolation_type="SMOOTHSTEP")
+        nt.links.new(bw.outputs[0], hot.inputs["Value"])
+        hot.inputs["From Min"].default_value, hot.inputs["From Max"].default_value = 1.2, 4.0   # ~10 deg and ~4 deg from the sun
+        km, ka, kb, kout = mix_rgb(nt, "MIX")
+        nt.links.new(hot.outputs["Result"], km.inputs[0])
+        nt.links.new(gain.outputs["Vector"], ka)
+        nt.links.new(sky, kb)
+        bgc = node(nt, "ShaderNodeBackground")
+        nt.links.new(kout, bgc.inputs["Color"])
+        bgc.inputs["Strength"].default_value = strength
+        # camera rays only: graded glossy rays would also brighten the sheen on every grass blade
+        lp = node(nt, "ShaderNodeLightPath")
+        ms = node(nt, "ShaderNodeMixShader")
+        nt.links.new(lp.outputs["Is Camera Ray"], ms.inputs[0])
+        nt.links.new(bg.outputs[0], ms.inputs[1])
+        nt.links.new(bgc.outputs[0], ms.inputs[2])
+        nt.links.new(ms.outputs[0], out.inputs["Surface"])
+    else:
+        nt.links.new(bg.outputs[0], out.inputs["Surface"])
     w["sun_dir"] = list(sun_dir)
     print("WORLD", name, "sun elev", round(math.degrees(elev), 1))
     return w
 
 
 # ================================================================== PARADISE (Bàu Trắng, Mũi Né)
-W_DAY = world_from_hdr("day", os.path.join(ASSETS, "h", "qwantani_late_afternoon_puresky_8k.hdr"), 1.0, sun_az_deg=-125, tint=(0.9, 0.98, 1.12))
-W_GOLD = world_from_hdr("golden", os.path.join(ASSETS, "h", "qwantani_sunset_puresky_8k.hdr"), 1.1, sun_az_deg=160, min_elev=10)
+SKY = LAYOUT.get("sky", "syferfontein_18d_clear_puresky_8k.hdr")
+W_DAY = world_from_hdr("day", os.path.join(ASSETS, "h", SKY), 1.0, sun_az_deg=LAYOUT.get("sun_az", 20), tint=(1.0, 0.96, 0.9),
+                       camera_grade=LAYOUT.get("sky_grade", {"sat": 1.15, "tint": (0.88, 1.0, 0.86), "gain": 3.0}))
+W_DAY["sun_dir"] = [-W_DAY["sun_dir"][0], -W_DAY["sun_dir"][1], W_DAY["sun_dir"][2]]
+_GOLD = []
+
+
+def w_gold():
+    """The sunset world for the old golden style frames, loaded only when one is rendered (an 8K sky is ~0.5 GB in memory)."""
+    if not _GOLD:
+        _GOLD.append(world_from_hdr("golden", os.path.join(ASSETS, "h", "qwantani_sunset_puresky_8k.hdr"), 1.1, sun_az_deg=160, min_elev=10))
+    return _GOLD[0]
 P.world = W_DAY
-SUN_P = light(P, "SUN", "sun", 3.6, (1.0, 0.95, 0.86), (0, 0, 50))
-SUN_P.data.angle = math.radians(0.8)
+SUN_P = light(P, "SUN", "sun", 4.6, (1.0, 0.8, 0.58), (0, 0, 50))
+SUN_P.data.angle = math.radians(0.6)
+
+
+def river_y(x):
+    return TR.river_y(x, TER)
+
+
+def barchans(x, y):
+    return TR.barchans(x, y, TER)
 
 
 def terrain(x, y):
-    h = 0.12 * np.sin(x * 0.21 + np.sin(y * 0.13)) * np.cos(y * 0.17) + 0.05 * np.sin(x * 0.7 + y * 0.5)
-    lake = np.clip(1 - (((x + 24) / 18) ** 2 + ((y - 9) / 10) ** 2), 0, 1)
-    h = h - 1.0 * lake ** 0.55
-    yc = 62 + 7 * np.sin(x * 0.035) + 3 * np.sin(x * 0.09 + 1)
-    H = 17 + 5 * np.sin(x * 0.028 + 1.0)
-    d = y - yc
-    prof = np.where(d < 0, np.exp(-(d / 22) ** 2), np.exp(-(d / 8) ** 2))
-    dune = H * prof
-    back = smooth(y, 95, 170) * (12 + 7 * np.sin(x * 0.02 + 0.4) + 4 * np.sin(x * 0.051))
-    return h + dune + back, dune, lake
+    return TR.terrain(x, y, TER)
 
 
-N = 700
-xs = np.linspace(-170, 170, N + 1)
-ys = np.linspace(-70, 270, N + 1)
-X, Y = np.meshgrid(xs, ys)
+GSPEC = TR.grid_spec(TER)
+N = GSPEC["n"]
+X, Y = TR.grid(TER)
 Z, DUNE, LAKE = terrain(X, Y)
-dist = np.hypot(X - 4, Y + 10)
-patch = 0.5 + 0.5 * np.sin(X * 0.17 + np.sin(Y * 0.11) * 2.0) * np.cos(Y * 0.13 + X * 0.05)
-MEADOW = smooth(0.9 - DUNE, 0.0, 0.6) * (1 - smooth(LAKE, 0.02, 0.15)) * (1 - smooth(Y, 20, 27)) * (1 - smooth(dist, 75, 115))
-MEADOW = np.clip(MEADOW * (0.9 + 0.3 * patch), 0, 1)
+MASKS = TR.masks(X, Y, DUNE, LAKE, TER)
 verts = np.stack([X.ravel(), Y.ravel(), Z.ravel()], 1).astype(np.float32)
 idx = np.arange((N + 1) * (N + 1)).reshape(N + 1, N + 1)
 quads = np.stack([idx[:-1, :-1], idx[:-1, 1:], idx[1:, 1:], idx[1:, :-1]], -1).reshape(-1, 4)
@@ -446,15 +595,8 @@ me.polygons.add(len(quads))
 me.polygons.foreach_set("loop_start", np.arange(0, quads.size, 4, dtype=np.int32))
 me.update(calc_edges=True)
 me.shade_smooth()
-attr = me.attributes.new("meadow", "FLOAT", "POINT")
-attr.data.foreach_set("value", MEADOW.ravel().astype(np.float32))
-E = ((X + 24) / 18) ** 2 + ((Y - 9) / 10) ** 2
-SHORE = smooth(E, 0.72, 0.86) * (1 - smooth(E, 1.1, 1.5))
-DUNEFOOT = smooth(DUNE, 0.25, 0.9) * (1 - smooth(DUNE, 2.5, 5.5)) * (Y < 60)
-CAMP = 1 - smooth(np.hypot((X - 6) / 1.3, Y - 15.5), 8, 12)
-EDGE = np.clip(4 * MEADOW * (1 - MEADOW), 0, 1) * (1 - CAMP)
-for nm, arr in (("shore", SHORE), ("dunefoot", DUNEFOOT), ("edge", EDGE), ("wild", MEADOW * (1 - CAMP) * (1 - SHORE))):
-    me.attributes.new(nm, "FLOAT", "POINT").data.foreach_set("value", np.clip(arr, 0, 1).ravel().astype(np.float32))
+for nm, arr in MASKS.items():
+    me.attributes.new(nm, "FLOAT", "POINT").data.foreach_set("value", arr.ravel().astype(np.float32))
 
 # ground shader: photo-scanned Poly Haven sand, bleached toward the white sand of Bau Trang;
 # 30 m wind ripples from aerial_beach_01, damp sand at the lake, grass and mud where "meadow" is set
@@ -509,7 +651,7 @@ mud_d, mud_a, mud_n = tex3("brown_mud_02", gmap(0.7, 2.0))
 sand = mixc(0.55, big_d.outputs["Color"], fine_d.outputs["Color"])
 hs = node(nt, "ShaderNodeHueSaturation")
 hs.inputs["Saturation"].default_value = 0.3
-hs.inputs["Value"].default_value = 1.7
+hs.inputs["Value"].default_value = 1.45
 nt.links.new(sand, hs.inputs["Color"])
 sand = mixc(1.0, hs.outputs["Color"], (1.0, 0.93, 0.8, 1), "MULTIPLY")
 # large-scale tone variation so the white sand is never one flat colour
@@ -524,12 +666,22 @@ for k in ("Red", "Green", "Blue"):
     nt.links.new(vr.outputs["Result"], vc.inputs[k])
 sand = mixc(1.0, sand, vc.outputs["Color"], "MULTIPLY")
 gh = node(nt, "ShaderNodeHueSaturation")
-gh.inputs["Hue"].default_value = 0.58
-gh.inputs["Saturation"].default_value = 1.7
-gh.inputs["Value"].default_value = 1.4
+gh.inputs["Hue"].default_value = 0.6
+gh.inputs["Saturation"].default_value = 1.9
+gh.inputs["Value"].default_value = 1.15
 nt.links.new(grs_d.outputs["Color"], gh.inputs["Color"])
-meadow_col = mixc(0.12, gh.outputs["Color"], mud_d.outputs["Color"])
-col = mixc(gattr("shore"), sand, damp_d.outputs["Color"])
+meadow_col = mixc(1.0, mixc(0.1, gh.outputs["Color"], mud_d.outputs["Color"]), (0.55, 0.8, 0.32, 1), "MULTIPLY")
+# Mui Ne red sand: the same scans, warmed toward orange
+redn = node(nt, "ShaderNodeHueSaturation")
+redn.inputs["Saturation"].default_value = 1.25
+redn.inputs["Value"].default_value = 0.95
+nt.links.new(sand, redn.inputs["Color"])
+sand_red = mixc(1.0, redn.outputs["Color"], (1.0, 0.62, 0.4, 1), "MULTIPLY")
+sand_white = mixc(1.0, sand, (1.0, 0.95, 0.86, 1), "MULTIPLY")
+col = mixc(gattr("red"), sand_white, sand_red)
+col = mixc(gattr("white"), col, sand_white)
+col = mixc(gattr("camp"), col, mixc(1.0, sand, (0.98, 0.9, 0.78, 1), "MULTIPLY"))
+col = mixc(gattr("shore"), col, damp_d.outputs["Color"])
 col = mixc(gattr("meadow"), col, meadow_col)
 nt.links.new(col, b.inputs["Base Color"])
 rough = mixc(gattr("shore"), (0.93, 0.93, 0.93, 1), (0.55, 0.55, 0.55, 1))
@@ -543,23 +695,83 @@ nt.links.new(nrm, nms.inputs["Color"])
 nt.links.new(nms.outputs["Normal"], b.inputs["Normal"])
 me.materials.append(m_g)
 ground = link(bpy.data.objects.new("ground", me), P)
+# open desert beyond the detailed ground, out to the horizon
+TR.build_far_desert(bpy, P, TER)
 
-# lake (Bàu Trắng is a pair of lakes at the foot of the white dunes)
+# the lake: one sheet at water level over the basin; each vertex knows the depth below it, so the shallows
+# read olive-sand and the middle dark teal, the way the MV and the Bau Trang photos show it
 water, nt, wb = new_mat("water")
-setin(wb, "Base Color", (0.06, 0.16, 0.17, 1))
-setin(wb, "Roughness", 0.04)
+setin(wb, "Roughness", 0.03)
 setin(wb, "IOR", 1.33)
-nzw = node(nt, "ShaderNodeTexNoise")
-nzw.inputs["Scale"].default_value = 3.5
-bw = node(nt, "ShaderNodeBump")
-bw.inputs["Strength"].default_value = 0.06
-nt.links.new(nzw.outputs["Fac"], bw.inputs["Height"])
-nt.links.new(bw.outputs["Normal"], wb.inputs["Normal"])
-mesh_obj("lake", bm_plane(60, 34), water, P, loc=(-24, 9, -0.32))
+setin(wb, "Specular IOR Level", 0.5)
+wv, wq, depth = TR.lake_mesh_arrays(TER)
+wme = bpy.data.meshes.new("lake")
+wme.vertices.add(len(wv))
+wme.vertices.foreach_set("co", wv.ravel())
+wme.loops.add(wq.size)
+wme.loops.foreach_set("vertex_index", wq.ravel().astype(np.int32))
+wme.polygons.add(len(wq))
+wme.polygons.foreach_set("loop_start", np.arange(0, wq.size, 4, dtype=np.int32))
+wme.update(calc_edges=True)
+wme.attributes.new("depth", "FLOAT", "POINT").data.foreach_set("value", depth)
+da = node(nt, "ShaderNodeAttribute")
+da.attribute_type = "GEOMETRY"
+da.attribute_name = "depth"
+wmix, wA, wB, wO = mix_rgb(nt, "MIX")
+nt.links.new(da.outputs["Fac"], wmix.inputs[0])
+wA.default_value = (0.36, 0.36, 0.25, 1)    # shallow olive-sand
+wB.default_value = (0.03, 0.09, 0.1, 1)     # deep teal
+nt.links.new(wO, wb.inputs["Base Color"])
+wtc = node(nt, "ShaderNodeTexCoord")
+wn1 = node(nt, "ShaderNodeTexNoise")
+wn1.inputs["Scale"].default_value = 0.35
+wn1.inputs["Detail"].default_value = 5
+nt.links.new(wtc.outputs["Object"], wn1.inputs["Vector"])
+wn2 = node(nt, "ShaderNodeTexNoise")
+wn2.inputs["Scale"].default_value = 9
+nt.links.new(wtc.outputs["Object"], wn2.inputs["Vector"])
+wb1 = node(nt, "ShaderNodeBump")
+wb1.inputs["Strength"].default_value = 0.06
+nt.links.new(wn1.outputs["Fac"], wb1.inputs["Height"])
+wb2 = node(nt, "ShaderNodeBump")
+wb2.inputs["Strength"].default_value = 0.02
+nt.links.new(wn2.outputs["Fac"], wb2.inputs["Height"])
+nt.links.new(wb1.outputs["Normal"], wb2.inputs["Normal"])
+nt.links.new(wb2.outputs["Normal"], wb.inputs["Normal"])
+wme.materials.append(water)
+link(bpy.data.objects.new("lake", wme), P)
+
+# the open sea to the east, beyond the dunes
+sea, nt, sb = new_mat("sea")
+# deep blue body with soft, weak reflections, so it reads as sea rather than a mirror of the pale horizon
+setin(sb, "Base Color", (0.005, 0.045, 0.11, 1))
+setin(sb, "Roughness", 0.22)
+setin(sb, "IOR", 1.33)
+setin(sb, "Specular IOR Level", 0.22)
+stc = node(nt, "ShaderNodeTexCoord")
+smp = node(nt, "ShaderNodeMapping")
+smp.inputs["Scale"].default_value = (0.04, 0.12, 1.0)
+nt.links.new(stc.outputs["Object"], smp.inputs["Vector"])
+snz = node(nt, "ShaderNodeTexNoise")
+snz.inputs["Scale"].default_value = 6.0
+snz.inputs["Detail"].default_value = 6
+nt.links.new(smp.outputs["Vector"], snz.inputs["Vector"])
+sbu = node(nt, "ShaderNodeBump")
+sbu.inputs["Strength"].default_value = 0.25
+nt.links.new(snz.outputs["Fac"], sbu.inputs["Height"])
+nt.links.new(sbu.outputs["Normal"], sb.inputs["Normal"])
+mesh_obj("sea", bm_plane(16000, 40000), sea, P, loc=(TER["sea"]["coast_x"] * TER["desert_scale"] + 8000, 0, TER["sea_level"]))
 
 # vegetation: Geometry Nodes scatter layers. Each picks Poly Haven scans where its mask attribute
 # is high, thinned by a noise field so plants grow in clumps and gaps instead of an even carpet.
-def scatter(name, mids, density, mask, smin, smax, clump=0.0, seed=0, tilt=0.12, crange=(0.45, 0.62)):
+VIEW_XY = tuple(LAYOUT.get("viewpoint", (2.0, 4.0)))
+
+
+def scatter(name, mids, density, mask, smin, smax, clump=0.0, seed=0, tilt=0.12, crange=(0.45, 0.62), near=0.0, far=0.0, floor=1.0,
+            grow=1.0, per_instance=1.0):
+    """grow > 1: plants thinned out with distance are scaled up by 1/sqrt(thinning), at most grow times, so the
+    ground stays as covered with a fraction of the instances (the game-LOD trick for scattered foliage).
+    per_instance: plants each instance carries (turf patches); density stays in plants per m2."""
     col = bpy.data.collections.new(name)
     for mid in mids:
         for o in LIBM[mid]["objs"]:
@@ -589,14 +801,29 @@ def scatter(name, mids, density, mask, smin, smax, clump=0.0, seed=0, tilt=0.12,
         ng.links.new(prob, mul.inputs[0])
         ng.links.new(mr.outputs["Result"], mul.inputs[1])
         prob = mul.outputs[0]
-    rnd = N("FunctionNodeRandomValue")
-    rnd.data_type = "FLOAT"
-    [x for x in rnd.inputs if x.name == "Seed"][0].default_value = seed + 7
-    cmp = N("FunctionNodeCompare")
-    cmp.data_type = "FLOAT"
-    cmp.operation = "LESS_THAN"
-    ng.links.new(rnd.outputs[0], cmp.inputs[0])
-    ng.links.new(prob, cmp.inputs[1])
+    if far > near:
+        # distance falloff: full density within `near` metres of the viewpoint, down to `floor` by `far`
+        pos = N("GeometryNodeInputPosition")
+        sep = N("ShaderNodeSeparateXYZ")
+        ng.links.new(pos.outputs[0], sep.inputs[0])
+        cmb = N("ShaderNodeCombineXYZ")
+        ng.links.new(sep.outputs["X"], cmb.inputs["X"])
+        ng.links.new(sep.outputs["Y"], cmb.inputs["Y"])
+        dist = N("ShaderNodeVectorMath")
+        dist.operation = "DISTANCE"
+        ng.links.new(cmb.outputs[0], dist.inputs[0])
+        dist.inputs[1].default_value = (VIEW_XY[0], VIEW_XY[1], 0)
+        fall = N("ShaderNodeMapRange")
+        fall.interpolation_type = "SMOOTHSTEP"
+        fall.inputs["From Min"].default_value, fall.inputs["From Max"].default_value = near, far
+        fall.inputs["To Min"].default_value, fall.inputs["To Max"].default_value = 1.0, floor
+        ng.links.new(dist.outputs["Value"], fall.inputs["Value"])
+        mul2 = N("ShaderNodeMath")
+        mul2.operation = "MULTIPLY"
+        ng.links.new(prob, mul2.inputs[0])
+        ng.links.new(fall.outputs["Result"], mul2.inputs[1])
+        prob = mul2.outputs[0]
+        fall_out = fall.outputs["Result"]
     ci = N("GeometryNodeCollectionInfo")
     ci.inputs["Collection"].default_value = col
     ci.inputs["Separate Children"].default_value = True
@@ -616,31 +843,60 @@ def scatter(name, mids, density, mask, smin, smax, clump=0.0, seed=0, tilt=0.12,
     join = N("GeometryNodeJoinGeometry")
     L = ng.links.new
     L(gi.outputs[0], dist_n.inputs["Mesh"])
-    L(cmp.outputs["Result"], dist_n.inputs["Selection"])
+    scale = [x for x in rs.outputs if x.type == "VALUE"][0]
+    if grow > 1.0 and far > near:
+        boost = N("ShaderNodeMath")
+        boost.operation = "POWER"
+        L(fall_out, boost.inputs[0])
+        boost.inputs[1].default_value = -0.5
+        cap = N("ShaderNodeMath")
+        cap.operation = "MINIMUM"
+        L(boost.outputs[0], cap.inputs[0])
+        cap.inputs[1].default_value = grow
+        smul = N("ShaderNodeMath")
+        smul.operation = "MULTIPLY"
+        L(scale, smul.inputs[0])
+        L(cap.outputs[0], smul.inputs[1])
+        scale = smul.outputs[0]
+    if per_instance != 1.0:
+        pin = N("ShaderNodeMath")
+        pin.operation = "MULTIPLY"
+        L(prob, pin.inputs[0])
+        pin.inputs[1].default_value = 1.0 / per_instance
+        prob = pin.outputs[0]
+    dmul = N("ShaderNodeMath")   # random mode takes density as a field: points only where the mask allows
+    dmul.name = "density"        # the layout panel's density slider is this node's second input
+    dmul.operation = "MULTIPLY"
+    dmul.inputs[1].default_value = density
+    L(prob, dmul.inputs[0])
+    L(dmul.outputs[0], dist_n.inputs["Density"])
     L(dist_n.outputs["Points"], iop.inputs["Points"])
     L(ci.outputs[0], iop.inputs["Instance"])
     L([x for x in rv.outputs if x.type == "VECTOR"][0], iop.inputs["Rotation"])
-    L([x for x in rs.outputs if x.type == "VALUE"][0], iop.inputs["Scale"])
+    L(scale, iop.inputs["Scale"])
     L(gi.outputs[0], join.inputs[0])
     L(iop.outputs[0], join.inputs[0])
     L(join.outputs[0], go.inputs[0])
     ground.modifiers.new(name, "NODES").node_group = ng
 
 
-scatter("grass", PLANTS["grass"], 45.0, "meadow", 0.45, 0.95, clump=0.18, seed=1, crange=(0.15, 0.35))
-scatter("bloom", PLANTS["bloom"], 0.25, "wild", 0.45, 0.9, clump=0.07, seed=2)
-scatter("edge", PLANTS["edge"], 0.5, "edge", 0.6, 1.4, clump=0.12, seed=3, tilt=0.3)
-scatter("dunefoot", PLANTS["dunefoot"], 0.03, "dunefoot", 0.8, 1.6, clump=0.05, seed=4)
-scatter("shore", PLANTS["shore"], 0.4, "shore", 0.6, 1.5, clump=0.1, seed=5, tilt=0.3)
+PLANT_D = LAYOUT.get("plants", {})
+ram("before scatter")
+scatter("grass", ["grass_patch"], PLANT_D.get("grass", 90.0), "grass", 0.85, 1.15, clump=0.12, seed=1, tilt=0.04, crange=(0.1, 0.32),
+        near=10, far=80, floor=0.025, grow=1.8, per_instance=GRASS_PATCH)
+scatter("bloom", PLANTS["bloom"], PLANT_D.get("bloom", 0.6), "wild", 0.5, 1.0, clump=0.06, seed=2, near=20, far=220, floor=0.15)
+scatter("edge", PLANTS["edge"], PLANT_D.get("edge", 0.4), "edge", 0.6, 1.4, clump=0.12, seed=3, tilt=0.3, near=30, far=260, floor=0.25)
+scatter("dunefoot", PLANTS["dunefoot"], PLANT_D.get("dunefoot", 0.09), "dunefoot", 1.2, 2.6, clump=0.04, seed=4, near=60, far=750, floor=0.18)
+scatter("shore", PLANTS["shore"], PLANT_D.get("shore", 0.5), "shore", 0.6, 1.5, clump=0.1, seed=5, tilt=0.3, near=30, far=320, floor=0.3)
+scatter("reeds", ["grass_medium_01"], PLANT_D.get("reeds", 9.0), "reeds", 1.9, 3.1, clump=0.15, seed=6, tilt=0.15, near=40, far=420, floor=0.3)
+scatter("dunetop", PLANTS["dunefoot"], PLANT_D.get("dunetop", 0.02), "dunetop", 1.0, 1.8, clump=0.06, seed=7)
 
-rng = np.random.default_rng(8)
-for cx, cy, n in ((-18, 27, 15), (-31, 23, 10), (24, 27, 12), (14, 33, 8)):
-    for i in range(n):
-        x, y = cx + rng.normal(0, 3.6), cy + rng.normal(0, 2.0)
-        t = terrain(np.array(x), np.array(y))
-        if float(t[2]) > 0.02:
-            continue
-        spawn("tree_small_02", P, loc=(x, y, float(t[0]) - 0.1), rz=rng.uniform(0, TAU), s=rng.uniform(0.95, 1.35))
+# golden tree clusters (centres, counts and spread from layout.json "trees")
+TREES = TR.trees(LAYOUT.get("trees"))
+GOLD_H = LIBM["golden_bush"]["mx"].z - LIBM["golden_bush"]["mn"].z
+for ci, c in enumerate(TREES["yellow"]["clusters"]):
+    for nm, x, y, rz, u in TR.cluster_trees("yellow", ci, c, TREES["yellow"]["density"], TER):
+        spawn("golden_bush", P, loc=(x, y, float(terrain(np.array(x), np.array(y))[0]) - 0.15), rz=rz, s=(2.2 + 1.6 * u) / GOLD_H, name=nm)
 
 # --- festival camp ---------------------------------------------------------------
 def ground_z(x, y):
@@ -846,15 +1102,17 @@ def teepee(name, loc, r=1.7, h=4.0, rz=0.0, mat=M_LINEN):
 
 
 # pastel camp on the sand behind the meadow, as in the MV
-cabin_tent("tent_mint", (-3.0, 25.0), 3.4, 2.8, 1.1, 2.3, TENT_MINT, rz=0.25, awning=1.4)
-cabin_tent("tent_pink", (1.8, 28.0), 3.0, 2.6, 1.0, 2.1, TENT_PINK, rz=-0.15)
-cabin_tent("tent_pink2", (5.8, 29.5), 2.4, 2.2, 0.9, 1.8, TENT_PINK, rz=0.35)
-dome_tent("dome_white", (-7.5, 27.0), r=1.6, h=1.4, rz=0.3)
-dome_tent("dome_sky", (10.5, 27.5), r=1.3, h=1.2, rz=-0.4, mat=TENT_SKY)
-teepee("teepee", (2.0, 20.5), r=1.5, h=3.6, mat=TENT_SKY)
+cabin_tent("tent_mint", (12.0, 24.0), 3.4, 2.8, 1.1, 2.3, TENT_MINT, rz=-0.3, awning=1.4)
+cabin_tent("tent_pink", (16.5, 27.0), 3.0, 2.6, 1.0, 2.1, TENT_PINK, rz=-0.45)
+cabin_tent("tent_pink2", (20.5, 28.5), 2.4, 2.2, 0.9, 1.8, TENT_PINK, rz=-0.1)
+dome_tent("dome_white", (25.0, 24.0), r=1.6, h=1.4, rz=-0.6)
+dome_tent("dome_sky", (8.5, 28.5), r=1.3, h=1.2, rz=-0.2, mat=TENT_SKY)
+teepee("teepee", (13.5, 19.5), r=1.5, h=3.6, mat=TENT_SKY)
 # bunting strung over the camp
 flag_cols = [(0.12, 0.6, 0.7), (0.95, 0.75, 0.2), (0.8, 0.25, 0.18), (0.95, 0.92, 0.85), (0.25, 0.55, 0.3)]
-for (ax, ay, bx, by) in ((-3.0, 25.0, 1.8, 28.0), (1.8, 28.0, 5.8, 29.5), (4.6, 16.7, 2.0, 20.5)):
+BUNT = Vector((14.5, 23.0, ground_z(14.5, 23.0)))
+bunting = empty("bunting", P, loc=BUNT)
+for (ax, ay, bx, by) in ((12.0, 24.0, 16.5, 27.0), (16.5, 27.0, 20.5, 28.5), (9.4, 16.9, 13.5, 19.5)):
     pa = Vector((ax, ay, ground_z(ax, ay) + 3.0))
     pb = Vector((bx, by, ground_z(bx, by) + 3.4))
     prev = None
@@ -864,13 +1122,13 @@ for (ax, ay, bx, by) in ((-3.0, 25.0, 1.8, 28.0), (1.8, 28.0, 5.8, 29.5), (4.6, 
         p.z -= math.sin(t * math.pi) * 0.5
         if prev is not None:
             seg = p - prev
-            c = mesh_obj("string", bm_cyl(0.005, 0.005, seg.length, 6), M_ROPE, P, loc=(prev + p) / 2)
+            c = mesh_obj("string", bm_cyl(0.005, 0.005, seg.length, 6), M_ROPE, P, bunting, loc=(prev + p) / 2 - BUNT)
             c.rotation_euler = seg.to_track_quat("Z", "Y").to_euler()
         if 0 < i < 24 and i % 2 == 0:
             bmf = bmesh.new()
             v1, v2, v3 = bmf.verts.new((-0.15, 0, 0)), bmf.verts.new((0.15, 0, 0)), bmf.verts.new((0, 0, -0.34))
             bmf.faces.new((v1, v2, v3))
-            f = mesh_obj("pennant", bmf, flat("pen%d" % i, flag_cols[(i // 2) % 5], rough=0.8, sheen=0.4), P, loc=p)
+            f = mesh_obj("pennant", bmf, flat("pen%d" % i, flag_cols[(i // 2) % 5], rough=0.8, sheen=0.4), P, bunting, loc=p - BUNT)
             f.rotation_euler = (0, 0, math.atan2(pb.y - pa.y, pb.x - pa.x))
             f.modifiers.new("s", "SOLIDIFY").thickness = 0.003
         prev = p
@@ -899,9 +1157,10 @@ DOOR = (-4.0, 40.0)
 door = make_door(P, (DOOR[0], DOOR[1], ground_z(*DOOR) - 0.25), 0.0, M_DOOR)
 door.rotation_euler = (math.radians(-3), 0, 0.05)
 
-# wind turbines on the far horizon (as in the reference photo)
-for i, (x, y) in enumerate(((-150, 175), (-128, 205), (-104, 232), (-176, 150))):
-    g = empty("turbine", P, loc=(x, y, ground_z(x, y) - 1), rz=0.9)
+# wind turbines on the far hills across the lake, small on the horizon as in the Mui Ne photos
+# (beyond the detailed ground, so they stand on the far land's surface)
+for i, (x, y) in enumerate(((-900, -1020), (-640, -960), (-390, -1060), (-130, -990), (130, -1050), (390, -970), (-1150, -930))):
+    g = empty("turbine_%d" % (i + 1), P, loc=(x, y, float(TR.far_desert(np.array(float(x)), np.array(float(y)), TER)) - 1), rz=0.9)
     mesh_obj("tower", bm_cyl(1.1, 0.6, 60, 16), M_WHITE, P, g, loc=(0, 0, 30))
     mesh_obj("nacelle", bm_box(2.0, 4.0, 2.0), M_WHITE, P, g, loc=(0, 0, 61))
     for k in range(3):
@@ -909,17 +1168,251 @@ for i, (x, y) in enumerate(((-150, 175), (-128, 205), (-104, 232), (-176, 150)))
         bl.rotation_euler = (0, TAU * k / 3 + i, 0)
         bl.location = (math.sin(TAU * k / 3 + i) * 13, -2.2, 61 + math.cos(TAU * k / 3 + i) * 13)
 
-# gentle aerial haze
-haze = mesh_obj("haze", bm_box(900, 900, 160), None, P, loc=(0, 100, 75))
+# ================================================================== AKMU content in the desert
+# Objects tagged with "hot" become clickable regions in the site (ID masks); children inherit the tag.
+REFS = os.path.dirname(COVER)
+FONTS = os.path.join(WORK, "fonts")
+F_TYPE = bpy.data.fonts.load(os.path.join(FONTS, "SpecialElite-Regular.ttf"))
+F_KR = bpy.data.fonts.load(os.path.join(FONTS, "Pretendard-SemiBold.otf"))
+M_INK = flat("ink", (0.08, 0.06, 0.05), rough=0.8)
+M_CREAM = flat("cream_paint", (0.9, 0.85, 0.74), rough=0.7)
+M_TVWOOD = pbr("tv_wood", "wood_planks", scale=3, tint=(0.5, 0.32, 0.2), coat=0.6, rough=0.5)
+
+
+def tag(ob, group):
+    ob["hot"] = group
+    return ob
+
+
+def text_obj(scene, body, size, parent=None, loc=(0, 0, 0), rot=(math.pi / 2, 0, 0), mat=None, font=None, extrude=0.003):
+    cu = bpy.data.curves.new("txt", "FONT")
+    cu.body = body
+    cu.size = size
+    cu.extrude = extrude
+    cu.align_x, cu.align_y = "CENTER", "CENTER"
+    cu.font = font or F_TYPE
+    cu.materials.append(mat or M_INK)
+    ob = bpy.data.objects.new("txt", cu)
+    ob.location, ob.rotation_euler = loc, rot
+    return link(ob, scene, parent)
+
+
+def retro_tv(scene, name, loc, rz, img, parent=None, s=1.0):
+    g = empty(name, scene, loc=loc, rz=rz, parent=parent)
+    g.scale = (s, s, s)
+    mesh_obj("tvbody", bm_box(0.78, 0.55, 0.58), M_TVWOOD, scene, g, loc=(0, 0, 0.29), bevel=0.04)
+    mesh_obj("bezel", bm_box(0.56, 0.02, 0.44), flat("bezel", (0.1, 0.09, 0.08), rough=0.4), scene, g, loc=(-0.07, -0.28, 0.31), bevel=0.02)
+    mesh_obj("screen", bm_plane(0.5, 0.375), image_mat("tvscreen_" + name, img, rough=0.15, emit=1.6), scene, g, loc=(-0.07, -0.292, 0.31), rot=(math.pi / 2, 0, 0))
+    for z in (0.42, 0.24):
+        mesh_obj("knob", bm_cyl(0.025, 0.025, 0.03, 16), M_BRASS, scene, g, loc=(0.29, -0.285, z), rot=(math.pi / 2, 0, 0))
+    for a in (-0.5, 0.5):
+        mesh_obj("antenna", bm_cyl(0.004, 0.004, 0.45, 6), M_BRASS, scene, g, loc=(0.1 + a * 0.2, 0, 0.58 + 0.2), rot=(0, a, 0))
+    return g
+
+
+def sleeves(scene, parent, n, front_img, loc=(0, 0, 0), w=0.31):
+    for i in range(n):
+        m = flat("sl%d" % i, ((0.86, 0.66, 0.24), (0.42, 0.48, 0.66), (0.7, 0.3, 0.2), (0.25, 0.45, 0.35), (0.9, 0.86, 0.78))[i % 5], rough=0.6)
+        sl = mesh_obj("sleeve", bm_box(w, 0.006, w), m, scene, parent, loc=(loc[0], loc[1] + 0.04 * (n - 1 - i), loc[2] + w / 2), rot=(-0.12, 0, 0))
+        if i == n - 1:  # the album faces out at the front of the crate
+            mesh_obj("sleeve_img", bm_plane(w, w), image_mat("sleeve_front", front_img, rough=0.6), scene, sl, loc=(0, -0.0035, 0), rot=(math.pi / 2, 0, 0))
+
+
+DESERT_HOT = {}
+gz = ground_z
+C360 = tuple(LAYOUT.get("viewpoint", (2.0, 4.0)))
+
+
+def face(x, y):
+    """rz that turns an object's front (-Y) toward the desert viewpoint."""
+    return math.atan2(C360[0] - x, -(C360[1] - y))
+# signpost
+sp = tag(empty("signpost", P, loc=(-4.5, 1, gz(-4.5, 1) - 0.05), rz=face(-4.5, 1) - 0.4), "sign")
+mesh_obj("spost", bm_cyl(0.06, 0.06, 3.0, 12), M_POST, P, sp, loc=(0, 0, 1.5))
+for k, (txt, ang, z) in enumerate((("PARADISE", 0.5, 2.6), ("THE ROOM", -0.35, 2.2), ("TOUR", 0.15, 1.8), ("소문", -0.6, 1.4))):
+    arm = empty("arm", P, loc=(0, 0, z), rz=ang, parent=sp)
+    mesh_obj("board", bm_box(1.15, 0.05, 0.24), M_CREAM, P, arm, loc=(0.6, 0, 0), bevel=0.01)
+    text_obj(P, txt, 0.14, arm, loc=(0.6, -0.03, 0), font=F_KR if txt == "소문" else F_TYPE)
+DESERT_HOT["sign"] = sp
+# record stall: table, LP crate, the album cover on an easel
+rs = tag(empty("records", P, loc=(-4, 9.5, gz(-4, 9.5) - 0.05), rz=face(-4, 9.5)), "records")
+mesh_obj("rtop", bm_box(2.0, 0.85, 0.05), M_WOOD, P, rs, loc=(0, 0, 0.78), bevel=0.01)
+for sx in (-0.9, 0.9):
+    for sy in (-0.35, 0.35):
+        mesh_obj("rleg", bm_box(0.05, 0.05, 0.78), M_WOOD, P, rs, loc=(sx, sy, 0.39))
+crate = empty("lpcrate", P, loc=(-0.5, 0.05, 0.805), parent=rs)
+for (bx, by, bz, sx_, sy_) in ((0, -0.22, 0.12, 0.38, 0.02), (0, 0.22, 0.12, 0.38, 0.02), (-0.18, 0, 0.12, 0.02, 0.46), (0.18, 0, 0.12, 0.02, 0.46), (0, 0, 0.005, 0.38, 0.46)):
+    mesh_obj("crate", bm_box(sx_, sy_, bz * 2 if bz > 0.01 else 0.01), M_WOOD, P, crate, loc=(bx, by, bz))
+sleeves(P, crate, 7, COVER, loc=(0, -0.16, 0.0))
+easel = empty("easel", P, loc=(0.45, 0, 0.805), rz=0.15, parent=rs)
+mesh_obj("cover_back", bm_box(0.62, 0.012, 0.62), M_CREAM, P, easel, loc=(0, 0.05, 0.36), rot=(-0.2, 0, 0))
+mesh_obj("cover_big", bm_plane(0.62, 0.62), image_mat("cover_big", COVER, rough=0.6), P, easel, loc=(0, 0.05 - 0.0075, 0.36), rot=(math.pi / 2 - 0.2, 0, 0))
+mesh_obj("easel_leg", bm_box(0.03, 0.03, 0.75), M_POST, P, easel, loc=(0, 0.16, 0.35), rot=(0.25, 0, 0))
+mesh_obj("rsignpole", bm_cyl(0.025, 0.025, 1.4, 8), M_POST, P, rs, loc=(-0.95, 0.38, 1.5))
+mesh_obj("rsign", bm_box(0.9, 0.03, 0.28), M_CREAM, P, rs, loc=(-0.95, 0.38, 2.15), bevel=0.01)
+text_obj(P, "RECORDS", 0.15, rs, loc=(-0.95, 0.36, 2.15))
+DESERT_HOT["records"] = rs
+# TV tower playing the MV
+tvs = tag(empty("tvtower", P, loc=(7.5, 7.5, gz(7.5, 7.5) - 0.05), rz=face(7.5, 7.5)), "tv")
+mesh_obj("tvcrate", bm_box(1.0, 0.7, 0.55), M_WOOD, P, tvs, loc=(0, 0, 0.275), bevel=0.01)
+retro_tv(P, "tv1", (-0.22, 0, 0.55), 0.05, os.path.join(REFS, "mv_paradise_01.jpg"), tvs)
+retro_tv(P, "tv2", (0.3, 0.02, 0.55), -0.12, os.path.join(REFS, "mv_paradise_02.jpg"), tvs, s=0.8)
+retro_tv(P, "tv3", (0.02, 0.05, 1.13), 0.1, os.path.join(REFS, "concert_01.jpg"), tvs, s=0.9)
+text_obj(P, "M/V", 0.16, tvs, loc=(0, -0.36, 0.3), mat=M_CREAM)
+DESERT_HOT["tv"] = tvs
+# merch rack beside the camp
+mr = tag(empty("merch", P, loc=(11, 10, gz(11, 10) - 0.05), rz=face(11, 10)), "merch")
+for sx in (-0.85, 0.85):
+    mesh_obj("rpost", bm_cyl(0.025, 0.025, 1.7, 10), M_POST, P, mr, loc=(sx, 0, 0.85))
+    mesh_obj("rfoot", bm_box(0.06, 0.6, 0.04), M_POST, P, mr, loc=(sx, 0, 0.02))
+mesh_obj("rbar", bm_cyl(0.018, 0.018, 1.75, 10), M_BRASS, P, mr, loc=(0, 0, 1.68), rot=(0, math.pi / 2, 0))
+TEE = [(-0.25, 0), (0.25, 0), (0.25, 0.45), (0.4, 0.38), (0.47, 0.5), (0.25, 0.62), (0.1, 0.62), (0, 0.58), (-0.1, 0.62), (-0.25, 0.62), (-0.47, 0.5), (-0.4, 0.38), (-0.25, 0.45)]
+for k, c in enumerate(((0.95, 0.93, 0.88), (0.62, 0.82, 0.76), (0.94, 0.72, 0.72), (0.96, 0.82, 0.42))):
+    bm = bmesh.new()
+    vs = [bm.verts.new((x * 0.85, 0, z * 0.85)) for x, z in TEE]
+    bm.faces.new(vs)
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+    t = mesh_obj("tee", bm, flat("tee%d" % k, c, rough=0.85, sheen=0.5), P, mr, loc=(-0.6 + k * 0.4, 0.02 * k, 1.08), rot=(0, 0, 0.12 * (k - 1.5)))
+    t.modifiers.new("s", "SOLIDIFY").thickness = 0.01
+    mesh_obj("hanger", bm_cyl(0.006, 0.006, 0.12, 6), M_BRASS, P, mr, loc=(-0.6 + k * 0.4, 0.02 * k, 1.62))
+mesh_obj("msign", bm_box(0.7, 0.03, 0.22), M_CREAM, P, mr, loc=(0, 0, 1.92), bevel=0.01)
+text_obj(P, "MERCH", 0.14, mr, loc=(0, -0.02, 1.92))
+DESERT_HOT["merch"] = mr
+# basket boat moored in the cove below the knoll, with a bottle letter
+bt = tag(empty("boat", P, loc=(-5, -25, -0.25), rz=0.6), "boat")
+bt.scale = (1.2,) * 3   # a 2.4 m thung chai, big enough to read from the viewpoint
+prof = [(1.0 * math.sin(t * math.pi / 2) + 0.02, -0.45 * math.cos(t * math.pi / 2) + 0.45) for t in np.linspace(0, 1, 14)]
+mesh_obj("basket", bm_lathe(prof, 48, lambda a, z: 0.01 * math.sin(a * 40)), pbr("basket", "weathered_peeling_timber", scale=4, tint=(0.62, 0.48, 0.32)), P, bt, smooth_shade=True).modifiers.new("s", "SOLIDIFY").thickness = 0.03
+mesh_obj("rim", bm_torus(1.0, 0.035, 48, 8), M_POST, P, bt, loc=(0, 0, 0.45), smooth_shade=True)
+mesh_obj("paddle", bm_box(0.06, 1.7, 0.02), M_POST, P, bt, loc=(0.3, 0.1, 0.5), rot=(0.15, 0.1, 0.6))
+mesh_obj("bottle", bm_cyl(0.05, 0.035, 0.26, 16), flat("bottle_glass", (0.75, 0.9, 0.85), rough=0.05, trans=1.0, ior=1.45), P, bt, loc=(-0.25, -0.2, 0.2), rot=(1.2, 0, 0.3))
+mesh_obj("letter", bm_box(0.03, 0.16, 0.03), M_CREAM, P, bt, loc=(-0.25, -0.2, 0.2), rot=(1.2, 0, 0.3))
+DESERT_HOT["boat"] = bt
+# dark trees on the near bank (MV, left of frame)
+import_model("island_tree_01")
+for k, (x, y, s_) in enumerate(((-96, -36, 1.0), (-112, -44, 0.9), (58, -40, 0.8), (-150, -30, 1.2), (140, -55, 1.1))):
+    spawn("island_tree_01", P, loc=(x, y, gz(x, y) - 0.2), rz=x * 0.37, s=s_, name="dark_tree_%d" % (k + 1))
+# a belt of dark pines along the far bank, in clumps, leaving the middle open to the sea
+import_model("pine_tree_lod")
+PINE_H = LIBM["pine_tree_lod"]["mx"].z - LIBM["pine_tree_lod"]["mn"].z
+# casuarinas: a duller, greyer green than a European pine
+recolor("pine_tree_lod", lambda n: "twig" in n or "needle" in n or "leaf" in n, tint=(0.33, 0.4, 0.28, 0.5))
+for ci, c in enumerate(TREES["pine"]["clusters"]):
+    for nm, x, y, rz, u in TR.cluster_trees("pine", ci, c, TREES["pine"]["density"], TER):
+        spawn("pine_tree_lod", P, loc=(x, y, gz(x, y) - 0.3), rz=rz, s=(8 + 6 * u) / PINE_H, name=nm)
+# picnic on the knoll above the cove: gingham blanket, boombox (playlist) and a wicker basket
+import_model("boombox")
+import_model("wicker_basket_01")
+gy, gx = np.mgrid[0:256, 0:256]
+ging = np.ones((256, 256, 3)) * np.array([0.93, 0.9, 0.84])
+band = ((gx // 32) % 2 == 0).astype(float) * 0.5 + ((gy // 32) % 2 == 0).astype(float) * 0.5
+ging = ging * (1 - band[..., None]) + band[..., None] * np.array([0.78, 0.22, 0.2])
+pc = tag(empty("picnic", P, loc=(3.5, -7, gz(3.5, -7) + 0.01), rz=face(3.5, -7)), "picnic")
+bl = bm_plane(2.2, 1.7, 22, 16)
+for vv in bl.verts:
+    vv.co.z += 0.015 * math.sin(vv.co.x * 9) * math.sin(vv.co.y * 7)
+mesh_obj("blanket", bl, image_mat("gingham", save_png("gingham", np.clip(ging, 0, 1)), rough=0.9, sheen=0.5), P, pc, loc=(0, 0, 0.02), smooth_shade=True)
+spawn("boombox", P, parent=pc, loc=(-0.45, 0.15, 0.03), rz=0.15)
+spawn("wicker_basket_01", P, parent=pc, loc=(0.6, 0.35, 0.03), rz=-0.4)
+for k in range(3):
+    mesh_obj("cassette", bm_box(0.1, 0.064, 0.012), flat("cass%d" % k, ((0.95, 0.9, 0.8), (0.3, 0.5, 0.7), (0.9, 0.55, 0.3))[k], rough=0.5), P, pc, loc=(0.0 + 0.12 * k, -0.35, 0.03 + 0.012 * k), rot=(0, 0, 0.3 * k))
+DESERT_HOT["picnic"] = pc
+
+# band gear left out for the show, no players (Sketchfab, CC BY 4.0, see CREDITS.md)
+# drum kit: modelled about 1.6x life size (97 cm bass drum), scaled to a real kit
+import_model("sf_drum_kit", scale=0.6)
+import_model("sf_mic_stand")
+import_model("sf_acoustic_guitar")
+# 1970 pickup: the file is about half scale and turned 43 degrees; straightened so its front is +X
+import_model("sf_pickup_1970", rz=-math.radians(42.8), scale=2.2)
+ST_RZ = 0.12
+
+
+def on_stage(lx, ly):
+    """World position of a point in the stage wagon's own frame."""
+    sx, sy = stage.location.x, stage.location.y
+    return (sx + lx * math.cos(ST_RZ) - ly * math.sin(ST_RZ), sy + lx * math.sin(ST_RZ) + ly * math.cos(ST_RZ))
+
+
+for mid, nm, lx, ly in (("sf_mic_stand", "mic_stands", -0.35, -1.0), ("sf_acoustic_guitar", "guitar", -1.2, -0.95)):
+    wx, wy = on_stage(lx, ly)
+    spawn(mid, P, parent=stage, loc=(lx, ly, 0.5), rz=face(wx, wy) - ST_RZ, name=nm)
+wx, wy = on_stage(4.4, -0.2)
+tag(spawn("sf_drum_kit", P, loc=(wx, wy, gz(wx, wy)), rz=face(wx, wy), name="drum_kit")[0], "stage")
+# the pickup parked between the merch rack and the tents, nose toward the river
+spawn("sf_pickup_1970", P, loc=(19.0, 9.0, gz(19.0, 9.0)), rz=math.radians(-113), name="pickup_truck")
+DESERT_HOT["stage"] = tag(stage, "stage")
+DESERT_HOT["door"] = tag(door, "door")
+
+
+# ---------------------------------------------------------------- layout overrides
+# Every top-level holder in the paradise (stage, tents, props, trees ...) can be moved in layout.json.
+# Heights are stored relative to the ground (dz), so things stay seated when the dunes are reshaped.
+def layout_holders(scene):
+    return [o for o in scene.objects if o.parent is None and o.type == "EMPTY"]
+
+
+n_moved = 0
+for o in layout_holders(P):
+    o["home"] = [o.location.x, o.location.y, o.location.z - gz(o.location.x, o.location.y), math.degrees(o.rotation_euler.z), o.scale.x]
+    v = LAYOUT.get("objects", {}).get(o.name)
+    if not v:
+        continue
+    o.location = (v["x"], v["y"], gz(v["x"], v["y"]) + v.get("dz", 0.0))
+    o.rotation_euler.z = math.radians(v.get("rz", math.degrees(o.rotation_euler.z)))
+    if "s" in v:
+        o.scale = (v["s"],) * 3
+    n_moved += 1
+print("LAYOUT objects", n_moved, "of", len(layout_holders(P)))
+# no grass through the picnic blanket, a gap in the reeds at the boat and a footpath down to it (after the
+# layout.json moves, so the clearings follow the props)
+_b, _p = DESERT_HOT["boat"].location, DESERT_HOT["picnic"].location
+TR.clear_masks(MASKS, *TR.grid(TER), TR.prop_clearings(VIEW_XY, (_b.x, _b.y), (_p.x, _p.y)))
+for nm in TR.CLEARED:
+    ground.data.attributes[nm].data.foreach_set("value", MASKS[nm].ravel().astype(np.float32))
+# the blanket drapes over the slope it lies on instead of letting the ground poke through
+P.view_layers[0].update()
+for o in DESERT_HOT["picnic"].children:
+    if o.name.startswith("blanket"):
+        mw = o.matrix_world
+        for v in o.data.vertices:
+            w_ = mw @ v.co
+            v.co.z += gz(w_.x, w_.y) + 0.035 - w_.z
+        o.data.update()
+
+# gentle aerial haze: a low, homogeneous slab (cheap to sample) that softens the distance but leaves the sky above clear
+haze = mesh_obj("haze", bm_box(8000, 8000, 170), None, P, loc=(0, 0, 65))
 hm = bpy.data.materials.new("haze")
 hm.use_nodes = True
 hnt = hm.node_tree
 hnt.nodes.remove(hnt.nodes["Principled BSDF"])
 hv = node(hnt, "ShaderNodeVolumePrincipled")
-hv.inputs["Density"].default_value = 0.00025
-hv.inputs["Color"].default_value = (0.86, 0.92, 1.0, 1)
+hv.inputs["Color"].default_value = (1.0, 0.95, 0.88, 1)
+hv.inputs["Anisotropy"].default_value = 0.55
+# density falls off with height: thick near the ground, clear above ~30 m
+hsep = node(hnt, "ShaderNodeSeparateXYZ")
+hnt.links.new(node(hnt, "ShaderNodeNewGeometry").outputs["Position"], hsep.inputs[0])
+hzc = node(hnt, "ShaderNodeMath", operation="MAXIMUM")
+hnt.links.new(hsep.outputs["Z"], hzc.inputs[0])
+hzc.inputs[1].default_value = 0.0
+hexp = node(hnt, "ShaderNodeMath", operation="MULTIPLY")
+hnt.links.new(hzc.outputs[0], hexp.inputs[0])
+hexp.inputs[1].default_value = -1 / 11.0
+hpow = node(hnt, "ShaderNodeMath", operation="EXPONENT")
+hnt.links.new(hexp.outputs[0], hpow.inputs[0])
+hden = node(hnt, "ShaderNodeMath", operation="MULTIPLY")
+hnt.links.new(hpow.outputs[0], hden.inputs[0])
+hden.inputs[1].default_value = 0.0013
+hnt.links.new(hden.outputs[0], hv.inputs["Density"])
 hnt.links.new(hv.outputs[0], hnt.nodes["Material Output"].inputs["Volume"])
 haze.data.materials.append(hm)
+# --haze 0 renders without the volume (to compare cost, or to add the haze afterwards from the depth pass)
+for l_ in list(hv.inputs["Density"].links):
+    hnt.links.remove(l_)
+hv.inputs["Density"].default_value = float(LAYOUT.get("haze", 0.00014))
+hv.inputs["Color"].default_value = (1.0, 0.93, 0.83, 1)
+hv.inputs["Anisotropy"].default_value = 0.35
+haze.hide_render = ARGS.get("--haze", "1") == "0"
 
 
 # ================================================================== ROOM (이찬혁의 방)
@@ -990,8 +1483,8 @@ vm.use_nodes = True
 vnt = vm.node_tree
 vnt.nodes.remove(vnt.nodes["Principled BSDF"])
 pv = node(vnt, "ShaderNodeVolumePrincipled")
-pv.inputs["Density"].default_value = 0.006
-pv.inputs["Anisotropy"].default_value = 0.45
+pv.inputs["Density"].default_value = 0.012
+pv.inputs["Anisotropy"].default_value = 0.6
 vnt.links.new(pv.outputs[0], vnt.nodes["Material Output"].inputs["Volume"])
 vol.data.materials.append(vm)
 
@@ -1006,29 +1499,29 @@ recolor("ClassicNightstand_01", lambda n: True, tint=(0.88, 0.83, 0.72, 0.8))
 recolor("ArmChair_01", lambda n: "fabric" in n or "cloth" in n or "seat" in n, tint=(0.86, 0.74, 0.62, 0.5))
 
 # layout (front wall = window, +Y)
-spawn("wooden_table_02", R, loc=(WIN["x"], RD / 2 - 0.45, 0))
+DESK = tag(spawn("wooden_table_02", R, loc=(WIN["x"], RD / 2 - 0.45, 0))[0], "desk")
 desk_top = LIBM["wooden_table_02"]["mx"].z - LIBM["wooden_table_02"]["mn"].z
 spawn("vintage_oil_lamp", R, loc=(WIN["x"] - 0.4, RD / 2 - 0.38, desk_top), rz=0.3)
 light(R, "POINT", "oil_lamp", 14, (1.0, 0.68, 0.38), (WIN["x"] - 0.4, RD / 2 - 0.38, desk_top + 0.42), size=0.04)
 spawn("chess_set", R, loc=(WIN["x"] + 0.28, RD / 2 - 0.55, desk_top), rz=0.25)
 spawn("book_encyclopedia_set_01", R, loc=(WIN["x"] - 0.05, RD / 2 - 0.3, desk_top), rz=0.0)
-spawn("Ukulele_01", R, loc=(-1.35, RD / 2 - 0.14, 0), rz=0.15)
+UKE = tag(spawn("Ukulele_01", R, loc=(-RW / 2 + 0.22, -1.75, 0), rz=-math.pi / 2)[0], "ukulele")
 spawn("potted_plant_02", R, loc=(1.6, RD / 2 - 0.35, 0), rz=0.4)
 spawn("throw_pillows_01", R, loc=(-RW / 2 + 0.55, 0.1, 0.42), rz=math.pi / 2)
 spawn("painted_wooden_chair_01", R, loc=(WIN["x"] + 0.05, RD / 2 - 1.05, 0), rz=math.pi + 0.15)
 spawn("Sofa_01", R, loc=(-RW / 2 + 0.48, 0.1, 0), rz=math.pi / 2)
 spawn("ArmChair_01", R, loc=(-0.75, -1.15, 0), rz=-math.pi / 2 - 0.45)
 spawn("painted_wooden_cabinet", R, loc=(RW / 2 - 0.32, 1.25, 0), rz=-math.pi / 2)
-spawn("GothicBed_01", R, loc=(RW / 2 - 1.05, -RD / 2 + 1.15, 0), rz=math.pi)
+BED = tag(spawn("GothicBed_01", R, loc=(RW / 2 - 1.05, -RD / 2 + 1.15, 0), rz=math.pi)[0], "bed")
 _, ns_top = spawn("ClassicNightstand_01", R, loc=(0.75, -RD / 2 + 0.3, 0), rz=math.pi)
 spawn("brass_candleholders", R, loc=(0.7, -RD / 2 + 0.3, ns_top), rz=0.0, s=0.45)
 spawn("standing_picture_frame_01", R, loc=(0.95, -RD / 2 + 0.36, ns_top), rz=math.pi - 0.3, s=0.8)
-spawn("vintage_grandfather_clock_01", R, loc=(-RW / 2 + 0.3, -RD / 2 + 0.35, 0), rz=3 * math.pi / 4)
+CLOCK = tag(spawn("vintage_grandfather_clock_01", R, loc=(-RW / 2 + 0.3, -RD / 2 + 0.35, 0), rz=3 * math.pi / 4)[0], "clock")
 spawn("Chandelier_02", R, loc=(0, 0, RH - (LIBM["Chandelier_02"]["mx"].z - LIBM["Chandelier_02"]["mn"].z)))
 for i, (x, y) in enumerate(((-0.35, 0.28), (0.35, 0.28), (0, -0.4))):
     light(R, "POINT", "chand%d" % i, 4, (1.0, 0.75, 0.45), (x, y, RH - 0.75), size=0.03)
-spawn("fancy_picture_frame_01", R, loc=(-RW / 2 + 0.03, -0.35, 1.25), rz=math.pi / 2, s=0.85)
-spawn("fancy_picture_frame_02", R, loc=(-RW / 2 + 0.03, 0.75, 1.45), rz=math.pi / 2, s=0.65)
+FR1 = tag(spawn("fancy_picture_frame_01", R, loc=(-RW / 2 + 0.03, -0.35, 1.25), rz=math.pi / 2, s=0.85)[0], "frames")
+FR2 = tag(spawn("fancy_picture_frame_02", R, loc=(-RW / 2 + 0.03, 0.75, 1.45), rz=math.pi / 2, s=0.65)[0], "frames")
 spawn("fancy_picture_frame_02", R, loc=(RW / 2 - 0.03, 1.25, 1.6), rz=-math.pi / 2, s=0.75)
 
 # green fringed floor lamp next to the sofa (reference: green shade with a bead fringe)
@@ -1094,6 +1587,43 @@ mesh_obj("bulb", bm_sphere(0.06), flat("bulb", (1, 0.9, 0.7), emit=(1.0, 0.62, 0
 light(R, "POINT", "sconce_l", 45, (1.0, 0.62, 0.3), (0, -0.14, 0), size=0.03, parent=sc)
 
 
+# ================================================================== AKMU content in the room
+tag(gram, "gramophone")
+tag(next(o for o in R.objects if o.name.startswith("glass")), "window")
+ROOM_HOT = {"gramophone": gram, "ukulele": UKE, "desk": DESK, "bed": BED, "clock": CLOCK}
+# TV on a low walnut cabinet against the front wall, playing the MV
+tvc = tag(empty("tvcab", R, loc=(-1.45, RD / 2 - 0.3, 0), rz=0.0), "tv")
+mesh_obj("tvcabinet", bm_box(0.95, 0.45, 0.5), M_WALNUT, R, tvc, loc=(0, 0, 0.25), bevel=0.015)
+retro_tv(R, "room_tv", (0, -0.02, 0.5), 0.12, os.path.join(REFS, "mv_paradise_01.jpg"), tvc, s=0.85)
+ROOM_HOT["tv"] = tvc
+# gilt photo frames with concert and MV photos on the left wall
+pf = tag(empty("photoframes", R, loc=(-RW / 2 + 0.02, -1.5, 0), rz=math.pi / 2), "photos")
+M_GILT = flat("gilt", (0.75, 0.58, 0.28), rough=0.3, metal=1.0)
+for (img, x, z, w_, h_) in (("concert_01.jpg", 0.0, 1.75, 0.64, 0.42), ("mv_paradise_02.jpg", -0.08, 1.18, 0.5, 0.33), ("concert_03.jpg", 0.42, 1.2, 0.3, 0.38)):
+    mesh_obj("pframe", bm_box(w_ + 0.08, 0.03, h_ + 0.08), M_GILT, R, pf, loc=(x, -0.015, z), bevel=0.01)
+    mesh_obj("photo", bm_plane(w_, h_), image_mat("photo_" + img, os.path.join(REFS, img), rough=0.4), R, pf, loc=(x, -0.032, z), rot=(math.pi / 2, 0, 0))
+ROOM_HOT["photos"] = pf
+tag(FR1, "photos")
+tag(FR2, "photos")
+# concert poster beside the window
+pst = tag(empty("poster", R, loc=(2.35, RD / 2 - 0.01, 1.55), rz=0.0), "poster")
+mesh_obj("pposter", bm_plane(0.6, 0.85), image_mat("poster_img", os.path.join(REFS, "concert_02.png"), rough=0.6), R, pst, loc=(0, -0.005, 0), rot=(math.pi / 2, 0, 0))
+for (x, z) in ((-0.27, 0.4), (0.27, 0.4)):
+    mesh_obj("pin", bm_sphere(0.012, 8, 4), M_BRASS, R, pst, loc=(x, -0.012, z))
+ROOM_HOT["poster"] = pst
+# LP crate by the sofa with the album at the front
+lpc = tag(empty("lpcrate_room", R, loc=(-2.1, -1.3, 0), rz=-0.6), "records")
+for (bx, by, bz, sx_, sy_) in ((0, -0.22, 0.17, 0.42, 0.02), (0, 0.22, 0.17, 0.42, 0.02), (-0.2, 0, 0.17, 0.02, 0.46), (0.2, 0, 0.17, 0.02, 0.46), (0, 0, 0.01, 0.42, 0.46)):
+    mesh_obj("crate", bm_box(sx_, sy_, bz * 2 if bz > 0.02 else 0.02), M_WALNUT, R, lpc, loc=(bx, by, bz))
+sleeves(R, lpc, 8, COVER, loc=(0, -0.17, 0.02))
+ROOM_HOT["records"] = lpc
+# lyric notes on the desk
+paper = tag(empty("notes", R, loc=(WIN["x"] - 0.22, RD / 2 - 0.66, desk_top + 0.002), rz=0.25), "desk")
+mesh_obj("paper", bm_box(0.21, 0.297, 0.002), flat("paper", (0.95, 0.93, 0.88), rough=0.9), R, paper)
+text_obj(R, "소문의 낙원", 0.022, paper, loc=(0, 0.09, 0.003), rot=(0, 0, 0), font=F_KR, extrude=0.0003)
+for k in range(8):
+    mesh_obj("line", bm_box(0.15 - 0.02 * (k % 3), 0.003, 0.0005), M_INK, R, paper, loc=(-0.01 * (k % 2), 0.05 - 0.022 * k, 0.003))
+
 # ================================================================== cameras + render
 def cam(scene, name, loc, target, lens=28, dof=None):
     cd = bpy.data.cameras.new(name)
@@ -1132,7 +1662,9 @@ def setup(scene, samples):
     c.sample_clamp_indirect = 6
     c.volume_bounces = 1
     c.max_bounces, c.diffuse_bounces, c.glossy_bounces, c.transmission_bounces, c.transparent_max_bounces = 8, 3, 3, 6, 8
-    for a, v in (("denoiser", "OPENIMAGEDENOISE"), ("denoising_use_gpu", True)):
+    # light tree for the many small lights, and GPU OIDN fed with albedo and normal passes
+    for a, v in (("denoiser", "OPENIMAGEDENOISE"), ("denoising_use_gpu", True), ("use_light_tree", True),
+                 ("denoising_input_passes", "RGB_ALBEDO_NORMAL"), ("denoising_prefilter", "ACCURATE")):
         try:
             setattr(c, a, v)
         except Exception:
@@ -1150,16 +1682,23 @@ def setup(scene, samples):
 
 
 prefs = bpy.context.preferences.addons["cycles"].preferences
-prefs.compute_device_type = "OPTIX"
-prefs.get_devices()
-for d in prefs.devices:
-    d.use = d.type == "OPTIX"
+for _kind in ("OPTIX", "CUDA", "HIP", "METAL"):
+    try:
+        prefs.compute_device_type = _kind
+        prefs.get_devices()
+        if any(d.type == _kind for d in prefs.devices):
+            for d in prefs.devices:
+                d.use = d.type == _kind
+            print("DEVICE", _kind, [d.name for d in prefs.devices if d.use])
+            break
+    except Exception:
+        pass
 samples = int(ARGS.get("--samples", 256))
 setup(P, samples)
 setup(R, int(samples * 1.5))
-P.view_settings.exposure = 0.0
+P.view_settings.exposure = float(LAYOUT.get("exposure", -0.3))
 try:
-    P.view_settings.look = "AgX - Medium High Contrast"
+    P.view_settings.look = "AgX - Base Contrast"
 except Exception:
     pass
 R.view_settings.exposure = 0.85
@@ -1176,7 +1715,7 @@ def box_blur(a, r):
     return a
 
 
-def film_post(path):
+def film_post(path, pano=False):
     """Halation, slight lens fringing, lifted blacks, vignette and grain on the display-referred JPEG."""
     im = bpy.data.images.load(path)
     w, h = im.size
@@ -1194,18 +1733,23 @@ def film_post(path):
     small.scale(w, h)
     g = np.empty(w * h * 4, np.float32)
     small.pixels.foreach_get(g)
-    a += g.reshape(h, w, 4)[..., :3] * np.array([0.35, 0.22, 0.14], np.float32)
+    a += g.reshape(h, w, 4)[..., :3] * np.array([0.5, 0.36, 0.24], np.float32)
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
     cx, cy = (w - 1) / 2, (h - 1) / 2
-    for ch, f in ((0, 1.0009), (2, 0.9991)):
+    for ch, f in (() if pano else ((0, 1.0009), (2, 0.9991))):
         sx = np.clip(np.rint(cx + (xx - cx) / f), 0, w - 1).astype(int)
         sy = np.clip(np.rint(cy + (yy - cy) / f), 0, h - 1).astype(int)
         a[..., ch] = a[sy, sx, ch]
     r2 = ((xx - cx) / cx) ** 2 * 0.62 + ((yy - cy) / cy) ** 2 * 0.38
-    a = 0.012 + a * 0.98
-    a *= (1 - 0.2 * r2 ** 1.4)[..., None]
+    # MV-like haze: warm veil, lifted blacks, a little less saturation
+    l2 = (a @ np.array([0.2126, 0.7152, 0.0722], np.float32))[..., None]
+    a = l2 + (a - l2) * 0.94
+    a = a * 0.9 + np.array([0.1, 0.095, 0.08], np.float32)
+    if not pano:
+        a *= (1 - 0.18 * r2 ** 1.4)[..., None]
     grain = np.random.default_rng(5).normal(0, 1, (h, w, 1)).astype(np.float32)
-    a += grain * (0.007 + 0.008 * (1 - np.clip(lum, 0, 1)))[..., None]
+    if not pano:
+        a += grain * (0.006 + 0.006 * (1 - np.clip(lum, 0, 1)))[..., None]
     out = bpy.data.images.new("post", w, h)
     out.pixels.foreach_set(np.dstack([np.clip(a, 0, 1), np.ones((h, w, 1), np.float32)]).ravel())
     out.filepath_raw = path
@@ -1221,7 +1765,12 @@ def render_window_plate():
     if not os.path.exists(path):
         P.world = W_DAY
         SUN_P.rotation_euler = Vector(W_DAY["sun_dir"]).to_track_quat("Z", "Y").to_euler()
-        P.camera = cam(P, "PLATE", (-18, 22, gz(-18, 22) + 5), (-12, 62, 20), 24)
+        # from the meadow north-west of the stage, level, toward the golden bushes and the big dune. The window
+        # shows only part of the 40 x 22.5 m plane behind it: seen from R0, eye level falls 68% up the plate and
+        # straight ahead 61% across, so the lens is shifted to put the horizon there
+        eye = gz(-18, 22) + 3.5
+        P.camera = cam(P, "PLATE", (-18, 22, eye), (20, 150, eye), 20)
+        P.camera.data.shift_x, P.camera.data.shift_y = -0.1075, -0.101
         r, st = P.render, P.render.image_settings
         keep = (r.resolution_x, r.resolution_y, P.cycles.samples, st.file_format)
         r.resolution_x, r.resolution_y, P.cycles.samples = 1600, 900, 96
@@ -1230,6 +1779,9 @@ def render_window_plate():
         P.view_layers[0].update()
         bpy.ops.render.render(write_still=True, scene=P.name)
         r.resolution_x, r.resolution_y, P.cycles.samples, st.file_format = keep
+        prev = bpy.data.images.load(path)   # a JPEG next to it, to check the framing without an EXR viewer
+        prev.save_render(path[:-4] + "_preview.jpg", scene=P)
+        bpy.data.images.remove(prev)
     m, nt, b = new_mat("window_view")
     setin(b, "Base Color", (0, 0, 0, 1))
     tx = node(nt, "ShaderNodeTexImage")
@@ -1266,6 +1818,259 @@ def door_view(path):
             o.data.materials.append(m)
 
 
+def hot_group(o):
+    while o is not None:
+        if "hot" in o.keys():
+            return o["hot"]
+        o = o.parent
+    return None
+
+
+def closeup_cam(scene, name, root, from_pos, lens=35, margin=1.35, room=False):
+    scene.view_layers[0].update()
+    objs = [o for o in scene.objects if hot_group(o) == root["hot"]] if "hot" in root.keys() else [root] + list(root.children_recursive)
+    pts = [o.matrix_world @ Vector(c) for o in objs if o.type in ("MESH", "FONT") for c in o.bound_box]
+    lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
+    hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+    c = (lo + hi) / 2
+    size = max((hi - lo).length * 0.5, 0.25)
+    d = Vector(from_pos) - c
+    d.z = 0
+    d.normalize()
+    dist = size * margin / math.tan(math.atan(18 / lens))
+    pos = c + d * dist + Vector((0, 0, size * 0.35))
+    if room:
+        pos.x = max(min(pos.x, RW / 2 - 0.2), -RW / 2 + 0.2)
+        pos.y = max(min(pos.y, RD / 2 - 0.2), -RD / 2 + 0.2)
+        pos.z = max(min(pos.z, RH - 0.25), 0.4)
+    else:
+        pos.z = max(pos.z, ground_z(pos.x, pos.y) + 0.8)
+    return cam(scene, name, tuple(pos), tuple(c), lens)
+
+
+def srgb(v):
+    return round(255 * (12.92 * v if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055))
+
+
+ID_COLS = [(1, 0.2, 0), (0, 1, 0.2), (0.2, 0, 1), (1, 1, 0), (0, 1, 1), (1, 0, 1), (1, 0.2, 1), (0.2, 1, 1), (1, 1, 0.2), (0.2, 0.2, 1)]
+
+
+def render_mask(scene, camob, path, groups):
+    m = bpy.data.materials.new("idmask")
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out, em, oi = nt.nodes.new("ShaderNodeOutputMaterial"), nt.nodes.new("ShaderNodeEmission"), nt.nodes.new("ShaderNodeObjectInfo")
+    nt.links.new(oi.outputs["Color"], em.inputs["Color"])
+    nt.links.new(em.outputs[0], out.inputs["Surface"])
+    ids = {}
+    for o in bpy.data.objects:
+        o.color = (0, 0, 0, 1)
+    for o in scene.objects:
+        if o.name.startswith("haze") or o.name.startswith("roomhaze"):
+            o.hide_render = True
+        grp = hot_group(o)
+        if grp in groups:
+            col = ID_COLS[groups.index(grp)]
+            o.color = (*col, 1)
+            ids[grp] = [srgb(v) for v in col]
+    scene.view_layers[0].material_override = m
+    w = bpy.data.worlds.new("black")
+    w.use_nodes = True
+    w.node_tree.nodes["Background"].inputs["Strength"].default_value = 0
+    scene.world = w
+    vs = scene.view_settings
+    vs.view_transform, vs.exposure = "Standard", 0.0
+    try:
+        vs.look = "None"
+    except Exception:
+        pass
+    c = scene.cycles
+    c.samples, c.use_denoising, c.use_adaptive_sampling = 1, False, False
+    c.filter_width = 0.01
+    r = scene.render
+    keep = (r.resolution_x, r.resolution_y)
+    r.resolution_x, r.resolution_y = keep[0] // 2, keep[1] // 2
+    r.image_settings.file_format = "PNG"
+    r.image_settings.color_mode = "RGB"
+    scene.camera = camob
+    r.filepath = path
+    scene.view_layers[0].update()
+    bpy.ops.render.render(write_still=True, scene=scene.name)
+    print("MASK", path)
+    return ids
+
+
+def render_depth(scene, camob, path, far=600.0):
+    """Log-encoded distance (white = near, black = sky/far) for the viewer's 2.5D parallax."""
+    m = bpy.data.materials.new("depthpass")
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out, em, cd = nt.nodes.new("ShaderNodeOutputMaterial"), nt.nodes.new("ShaderNodeEmission"), nt.nodes.new("ShaderNodeCameraData")
+    a = nt.nodes.new("ShaderNodeMath"); a.operation = "ADD"; a.inputs[1].default_value = 1.0
+    lg = nt.nodes.new("ShaderNodeMath"); lg.operation = "LOGARITHM"; lg.inputs[1].default_value = math.e
+    dv = nt.nodes.new("ShaderNodeMath"); dv.operation = "DIVIDE"; dv.inputs[1].default_value = math.log(1 + far)
+    inv = nt.nodes.new("ShaderNodeMath"); inv.operation = "SUBTRACT"; inv.inputs[0].default_value = 1.0; inv.use_clamp = True
+    nt.links.new(cd.outputs["View Distance"], a.inputs[0])
+    nt.links.new(a.outputs[0], lg.inputs[0])
+    nt.links.new(lg.outputs[0], dv.inputs[0])
+    nt.links.new(dv.outputs[0], inv.inputs[1])
+    nt.links.new(inv.outputs[0], em.inputs["Color"])
+    nt.links.new(em.outputs[0], out.inputs["Surface"])
+    scene.view_layers[0].material_override = m
+    c = scene.cycles
+    c.samples, c.use_denoising, c.use_adaptive_sampling = 4, False, False
+    r = scene.render
+    r.resolution_x, r.resolution_y = 2048, 1024
+    r.image_settings.file_format = "PNG"
+    r.image_settings.color_mode = "BW"
+    r.image_settings.color_depth = "16"
+    scene.camera = camob
+    r.filepath = path
+    scene.view_layers[0].update()
+    bpy.ops.render.render(write_still=True, scene=scene.name)
+    print("DEPTH", path)
+
+
+# ---------------------------------------------------------------- layout file for hand-editing in Blender
+# Saves the built paradise as a .blend: every top-level holder is a handle (its height kept relative to
+# the ground), each crescent dune gets a handle, and layout_tools.py adds the panel that saves layout.json.
+if ARGS.get("--layout-blend"):
+    out_blend = os.path.abspath(ARGS["--layout-blend"])
+    cd = bpy.data.cameras.new("D0")
+    cd.type = "PANO"
+    try:
+        cd.panorama_type = "EQUIRECTANGULAR"
+    except Exception:
+        cd.cycles.panorama_type = "EQUIRECTANGULAR"
+    cd.clip_start, cd.clip_end = 0.03, 5000
+    D0 = link(bpy.data.objects.new("D0", cd), P)
+    D0.location = (C360[0], C360[1], gz(*C360) + 1.65)
+    D0.rotation_euler = (math.pi / 2, 0, 0)
+    D0["viewpoint"] = 1
+    P.camera = D0
+    for o in layout_holders(P):
+        o["layout"] = 1
+        o["dz"] = o.location.z - gz(o.location.x, o.location.y)
+        o.empty_display_type, o.empty_display_size = "PLAIN_AXES", 1.2
+    for i, b in enumerate(TER["barchans"]):
+        e = empty("dune_%d" % (i + 1), P, loc=(b["x"], b["y"], gz(b["x"], b["y"]) + 3), rz=math.radians(b["dir"]))
+        e.empty_display_type, e.empty_display_size = "ARROWS", 25
+        e["dune"] = 1
+        e["height"], e["width"] = float(b["height"]), float(b["width"])
+        e.id_properties_ui("height").update(min=2.0, max=120.0, description="crest height (m)")
+        e.id_properties_ui("width").update(min=10.0, max=300.0, description="half width of the horns (m)")
+        e.show_name = True
+    ts = empty("terrain_settings", P, loc=(0, 0, -50))
+    ts.hide_viewport = True
+    for sec, key, label, lo, hi in TR.SLIDERS:
+        k = TR.slider_prop(sec, key)
+        ts[k] = float(TER[sec] if key is None else TER[sec][key])
+        ts.id_properties_ui(k).update(min=lo, max=hi, description=label)
+    for kind in ("yellow", "pine"):
+        ts[kind + "_density"] = float(TREES[kind]["density"])
+        ts.id_properties_ui(kind + "_density").update(min=0.0, max=5.0)
+    # tree clusters: a sphere handle per cluster (centre, count, spread) and a hidden template tree to plant from
+    for kind, mid in (("yellow", "golden_bush"), ("pine", "pine_tree_lod")):
+        for ci, c in enumerate(TREES[kind]["clusters"]):
+            e = empty("cluster_%s_%d" % (kind, ci + 1), P, loc=(c["x"], c["y"], gz(c["x"], c["y"]) + 2))
+            e.empty_display_type, e.empty_display_size = "SPHERE", max(c["sx"], c["sy"])
+            e.show_name = True
+            e["cluster"], e["kind"], e["index"] = 1, kind, ci
+            for k, v, lo, hi in (("n", c["n"], 0, 80), ("sx", c["sx"], 0.5, 60.0), ("sy", c["sy"], 0.5, 60.0)):
+                e[k] = int(v) if k == "n" else float(v)
+                e.id_properties_ui(k).update(min=lo, max=hi)
+            e["_planted"] = [e.location.x, e.location.y, e["n"], e["sx"], e["sy"], TREES[kind]["density"]]
+        tpl = spawn(mid, P, loc=(0, 0, -400), name="template_" + kind)[0]
+        L_ = LIBM[mid]
+        tpl["pivot"] = [(L_["mn"].x + L_["mx"].x) / 2, (L_["mn"].y + L_["mx"].y) / 2, L_["mn"].z]
+        tpl["model_h"] = L_["mx"].z - L_["mn"].z
+        for o in [tpl] + list(tpl.children_recursive):
+            o.hide_viewport = o.hide_render = True
+    ground["grid"] = [GSPEC["x0"], GSPEC["x1"], GSPEC["y0"], GSPEC["y1"], GSPEC["n"]]
+    # keep the viewport light: dense grass and reeds render but are not drawn while you arrange things
+    for m in ground.modifiers:
+        if m.name in ("grass", "bloom", "edge", "shore", "reeds"):
+            m.show_viewport = False
+    P.objects["haze"].hide_viewport = True
+    P["layout_path"], P["script_dir"], P["work"] = LAYOUT_PATH, SCRIPT_DIR, WORK
+    # images made in memory would be lost on save; pack just those
+    for im in bpy.data.images:
+        if im.source == "GENERATED" or (not im.filepath and im.has_data):
+            try:
+                im.pack()
+            except Exception:
+                pass
+    for w in bpy.data.window_managers[0].windows if bpy.data.window_managers else []:
+        w.scene = P
+    os.makedirs(os.path.dirname(out_blend), exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=out_blend, compress=False)
+    print("LAYOUT BLEND", out_blend)
+    sys.exit(0)
+
+if ARGS.get("--world"):
+    import json as _json
+    WD = os.path.join(OUTDIR, "world")
+    os.makedirs(WD, exist_ok=True)
+    only = ARGS.get("--views")
+    def pano_cam(scene, name, loc):
+        cd = bpy.data.cameras.new(name)
+        cd.type = "PANO"
+        try:
+            cd.panorama_type = "EQUIRECTANGULAR"
+        except Exception:
+            cd.cycles.panorama_type = "EQUIRECTANGULAR"
+        cd.clip_start, cd.clip_end = 0.03, 5000
+        ob = bpy.data.objects.new(name, cd)
+        ob.location = loc
+        ob.rotation_euler = (math.pi / 2, 0, 0)  # image centre looks north (+Y)
+        return link(ob, scene)
+
+    ram("scene built")
+    D0 = pano_cam(P, "D0", (C360[0], C360[1], gz(*C360) + 1.65))
+    R0 = pano_cam(R, "R0", (0.3, -0.2, 1.55))
+    PANO_W = int(ARGS.get("--pano", 6144))
+    shots = [("R0", R, R0)]
+    for k, root in ROOM_HOT.items():
+        shots.append(("R_" + k, R, closeup_cam(R, "R_" + k, root, R0.location, lens=32, room=True)))
+    shots.append(("D0", P, D0))
+    # the TV tower stands between the viewpoint and the merch rack, so that close-up is framed from a little further south
+    CLOSE_FROM = {"merch": Vector((7.0, -2.0, D0.location.z))}
+    for k, root in DESERT_HOT.items():
+        shots.append(("D_" + k, P, closeup_cam(P, "D_" + k, root, CLOSE_FROM.get(k, D0.location), lens=35 if k != "stage" else 28)))
+    render_window_plate()
+    P.world = W_DAY
+    SUN_P.rotation_euler = Vector(W_DAY["sun_dir"]).to_track_quat("Z", "Y").to_euler()
+    for name, scene, camob in shots:
+        if only and name not in only.split(","):
+            continue
+        if name == "D_door" and os.path.exists(os.path.join(WD, "R0.jpg")):
+            door_view(os.path.join(WD, "R0.jpg"))
+        scene.camera = camob
+        pano = camob.data.type == "PANO"
+        r_ = scene.render
+        r_.resolution_x, r_.resolution_y = (PANO_W, PANO_W // 2) if pano else (int(ARGS.get("--w", 1920)), int(ARGS.get("--h", 1080)))
+        scene.view_layers[0].update()
+        r_.filepath = os.path.join(WD, name + ".jpg")
+        bpy.ops.render.render(write_still=True, scene=scene.name)
+        if ARGS.get("--post", "1") == "1":
+            film_post(r_.filepath, pano=pano)
+        print("WROTE", scene.render.filepath)
+    if not ARGS.get("--nomask"):
+        for sc_ in (P, R):
+            sc_.render.resolution_x, sc_.render.resolution_y = PANO_W, PANO_W // 2
+        P.objects["lake"]["hot"] = "water"
+        ids = {"D0": render_mask(P, D0, os.path.join(WD, "D0_mask.png"), list(DESERT_HOT) + ["water"]),
+               "R0": render_mask(R, R0, os.path.join(WD, "R0_mask.png"), list(dict.fromkeys(list(ROOM_HOT) + ["photos", "poster", "window"])))}
+        with open(os.path.join(WD, "ids.json"), "w") as f:
+            _json.dump(ids, f)
+        render_depth(P, D0, os.path.join(WD, "D0_depth.png"))
+        render_depth(R, R0, os.path.join(WD, "R0_depth.png"))
+    ram("end")
+    print("WORLD DONE")
+    sys.exit(0)
+
 order = sorted(FRAMES, key=lambda n: FRAMES[n][0] != R)
 for name in order:
     scene, mode, camob = FRAMES[name]
@@ -1275,7 +2080,7 @@ for name in order:
     if name == "F2_door" and os.path.exists(room_img):
         door_view(room_img)
     if scene == P:
-        w = W_GOLD if mode == "golden" else W_DAY
+        w = w_gold() if mode == "golden" else W_DAY
         P.world = w
         SUN_P.rotation_euler = Vector(w["sun_dir"]).to_track_quat("Z", "Y").to_euler()
         SUN_P.data.energy = 3.0 if mode == "golden" else 3.6
