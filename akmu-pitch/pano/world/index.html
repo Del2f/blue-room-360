@@ -4,6 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>소문의 낙원 360 시안</title>
+<!-- a pitch draft with official images still under review: kept out of search engines, shared by link only -->
+<meta name="robots" content="noindex, nofollow, noimageindex">
+<meta name="description" content="AKMU 「소문의 낙원」 360° 콘셉트 시안. 모래언덕 아래 호숫가의 작은 축제와 방을 둘러보세요.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="소문의 낙원 360 시안">
+<meta property="og:description" content="모래언덕 아래, 호숫가의 작은 축제. 드래그해서 둘러보고 무대·레코드·배를 눌러 보세요.">
+<meta property="og:url" content="https://del2f.github.io/blue-room-360/akmu-pitch/pano/world/">
+<meta property="og:image" content="https://del2f.github.io/blue-room-360/akmu-pitch/pano/world/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://del2f.github.io/blue-room-360/akmu-pitch/pano/world/og.jpg">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap">
 <style>
@@ -205,6 +218,8 @@ body.intro #hero { opacity: 1; }
 #hero .cue i::after { content: ""; position: absolute; left: 50%; top: 7px; width: 3px; height: 7px; margin-left: -1.5px; border-radius: 2px; background: var(--cream); animation: wheel 1.6s var(--ease) infinite; }
 @keyframes wheel { 0% { transform: translateY(0); opacity: 1; } 80% { transform: translateY(10px); opacity: 0; } 100% { opacity: 0; } }
 .badge { position: fixed; right: 12px; bottom: 8px; z-index: 26; font-size: 10px; color: rgba(255, 248, 234, .5); }
+.badge a { color: rgba(255, 248, 234, .8); text-decoration: underline; text-underline-offset: 2px; pointer-events: auto; }
+.badge a:hover { color: #fff8ea; }
 
 @media (max-width: 760px) {
   .shot { padding: 0; align-items: flex-end; justify-content: stretch; }
@@ -264,7 +279,7 @@ body.intro #hero { opacity: 1; }
 <div id="hint" class="glass chrome">드래그해서 둘러보고, 이름표나 목록을 눌러 보세요</div>
 <div id="flash"></div>
 <div id="cur"></div>
-<div class="badge">CONCEPT DRAFT · LOCAL · 360</div>
+<div class="badge">CONCEPT DRAFT · 360 · <a href="https://github.com/Del2f/blue-room-360/blob/gh-pages/akmu-pitch/CREDITS.md" target="_blank" rel="noopener">에셋 크레딧</a></div>
 
 <script type="module">
 import * as THREE from "three";
