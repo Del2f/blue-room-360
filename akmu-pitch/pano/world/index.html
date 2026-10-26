@@ -259,6 +259,13 @@ body.draft .lab .tagx b { display: none; }
 
 /* --- 6 · draft 1's labels + draft 2's heading tape; no place list, no 낙원/방 switch (doors in the scene still travel) --- */
 body.ui6 #dock, body.ui6 #dockToggle, body.ui6 nav.places { display: none !important; }
+/* --- 7 · as 6, minus the top status pill; the heading sits in the header row and its readout is bare text --- */
+body.ui7 #island { display: none; }
+body.ui7.dir2 #compass { top: calc(max(16px, env(safe-area-inset-top)) + 2px); }
+body.ui7 #compass .read { top: 32px; padding: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; gap: 10px; color: rgba(255, 248, 234, .92); text-shadow: 0 1px 12px rgba(0, 0, 0, .45); }
+body.ui7 #compass .read::before { display: none; }
+body.ui7 #compass .read b { font-size: 18px; }
+body.ui7 #compass .read span { font-size: 10px; opacity: .75; }
 
 /* --- 1 · ZERO RULER: why.zero's smoked pills + its measuring-ruler HUD as the compass ---------------------- */
 body.lab1 .lab .tagx { display: flex; align-items: center; gap: 6px; padding: 9px 14px; font-size: 15px; }
@@ -409,6 +416,7 @@ body.ui5 .lab .stem { height: 26px; }
 
 @media (max-width: 760px) {
   body.ui6 #island { top: max(16px, env(safe-area-inset-top)); }
+  body.ui7.dir2 #compass, body.ui7.dir2.idle #compass.chrome { top: calc(max(16px, env(safe-area-inset-top)) + 52px); }
   body.dir1 #compass, body.ui3 #compass { width: calc(100vw - 92px); }
   body.dir2 #compass, body.dir2.idle #compass.chrome { left: 50%; width: calc(100vw - 48px); transform: translateX(-50%); }
   body.ui3 .lab .nm { font-size: 17px; }
@@ -467,7 +475,7 @@ body.ui5 .lab .stem { height: 26px; }
   <div class="card" id="card"></div>
 </div>
 <div id="hint" class="glass chrome">드래그해서 둘러보고, 이름표나 목록을 눌러 보세요</div>
-<script>if (/[?&]ui=6\b/.test(location.search)) document.getElementById("hint").textContent = "드래그해서 둘러보고, 이름표를 눌러 보세요";</script>
+<script>if (/[?&]ui=[67]\b/.test(location.search)) document.getElementById("hint").textContent = "드래그해서 둘러보고, 이름표를 눌러 보세요";</script>
 <div id="flash"></div>
 <div id="cur"></div>
 <div class="badge">CONCEPT DRAFT · 360 · <a href="https://github.com/Del2f/blue-room-360/blob/gh-pages/akmu-pitch/CREDITS.md" target="_blank" rel="noopener">에셋 크레딧</a></div>
@@ -521,9 +529,10 @@ const PLACE_NAME = { desert: "소문의 낙원", room: "방" };
 
 const $ = (s) => document.querySelector(s);
 // UI drafts: ?ui=1..5 swaps the labels, compass and glass styling; no param keeps the current look
-const UI = Math.max(0, Math.min(6, parseInt(new URLSearchParams(location.search).get("ui"), 10) || 0));
-// each draft = a label style (lab*) + a compass style (dir*); 6 mixes draft 1's labels with draft 2's heading tape
-const LAB = UI === 6 ? 1 : UI, DIR = UI === 6 ? 2 : UI;
+const UI = Math.max(0, Math.min(7, parseInt(new URLSearchParams(location.search).get("ui"), 10) || 0));
+// each draft = a label style (lab*) + a compass style (dir*); 6 and 7 mix draft 1's labels with draft 2's heading tape
+const LAB = UI >= 6 ? 1 : UI, DIR = UI >= 6 ? 2 : UI;
+if (UI === 7) document.body.classList.add("ui6");
 document.body.classList.add("ui" + UI, "lab" + LAB, "dir" + DIR);
 if (UI) document.body.classList.add("draft");
 const DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"], DIRS_KO = ["북", "북동", "동", "남동", "남", "남서", "서", "북서"];
