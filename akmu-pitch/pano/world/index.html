@@ -433,6 +433,109 @@ body.ui5 .lab .stem { height: 26px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+/* ======================= entry drafts: ?intro=1..3 (no param = the current entrance) ======================= */
+/* each one spends the whole screen on the first moment: the scene shows while it loads, the type runs edge to edge */
+.ix { display: none; position: absolute; inset: 0; pointer-events: none; color: #fff8ea; }
+body.ixd #intro .ix { display: block; }
+body.ixd #intro { background: #0d0a07; transition: opacity 1.4s var(--ease), visibility 0s 1.4s, background .9s; }
+body.ixd.preview #intro { background: transparent; }
+body.ixd #intro .en, body.ixd #intro .ld { display: none; }
+body.ixd #hero h1 { display: none; }
+body.ixd:not(.entered) #hero { opacity: 0; }
+body.ixd #intro > div:first-child { position: absolute; right: 24px; bottom: max(24px, env(safe-area-inset-bottom)); z-index: 2; }
+body.ixd #intro .enter { margin: 0; }
+body.ixd #intro .enter button { position: relative; padding: 11px 18px; font-size: 14px; font-weight: 500; border: 0; color: rgba(255, 255, 255, .92); background: rgba(0, 0, 0, .4);
+  -webkit-backdrop-filter: saturate(120%) blur(14px); backdrop-filter: saturate(120%) blur(14px); box-shadow: 0 4px 16px rgba(0, 0, 0, .3), inset 0 1px rgba(255, 255, 255, .08), inset 0 0 0 1px rgba(255, 255, 255, .1); }
+body.ixd #intro .enter button::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; background: linear-gradient(135deg, rgba(255, 255, 255, .4), rgba(255, 255, 255, 0) 35% 65%, rgba(255, 255, 255, .4));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#fff 0 0) content-box exclude, linear-gradient(#fff 0 0); }
+body.ixd #intro .enter button.primary::after { content: none; }
+body.ixd #intro .enter button.primary { box-shadow: 0 4px 16px rgba(0, 0, 0, .3), inset 0 0 0 1.5px rgba(255, 200, 50, .85), 0 0 18px rgba(255, 190, 40, .35); }
+body.ixd #intro .enter button.primary span { color: #ffc832; margin-right: 6px; }
+body.ixd #intro .enter button:hover { background: rgba(0, 0, 0, .55); color: #fff; }
+.ix-meta { position: absolute; left: 24px; right: 24px; top: max(22px, env(safe-area-inset-top)); display: flex; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 248, 234, .22);
+  font-family: var(--font-type); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 248, 234, .78); text-shadow: 0 1px 10px rgba(0, 0, 0, .4); }
+.ix-meta span:nth-child(2), .ix-meta span:nth-child(3) { font-family: var(--font-ko), serif; text-transform: none; letter-spacing: .02em; }
+.ix-en { position: absolute; left: 24px; right: 24px; display: flex; justify-content: space-between; font-family: var(--font-type); font-size: clamp(12px, 1.3vw, 18px); text-transform: uppercase; color: rgba(255, 248, 234, .9); text-shadow: 0 1px 12px rgba(0, 0, 0, .45); }
+.ix-title { position: absolute; margin: 0; font-family: var(--font-ko), serif; font-weight: 700; line-height: .92; letter-spacing: -.045em; white-space: nowrap; color: #fff8ea; text-shadow: 0 8px 50px rgba(0, 0, 0, .35); }
+.ix-title span { display: inline-block; transition: transform 1.3s var(--ease), opacity 1s var(--ease), filter 1.1s var(--ease); }
+.ix-count { position: absolute; font-family: var(--font-type); color: #fff8ea; line-height: .8; text-shadow: 0 2px 20px rgba(0, 0, 0, .35); font-variant-numeric: tabular-nums; }
+.ix-count small { font-size: .3em; margin-left: .15em; opacity: .7; }
+.ix-cap { position: absolute; font-family: var(--font-type); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 248, 234, .7); text-shadow: 0 1px 10px rgba(0, 0, 0, .45); }
+.ix-info, .ix-grid, .ix-ruler { display: none; }
+#intro.off .ix-meta, #intro.off .ix-en, #intro.off .ix-count, #intro.off .ix-cap { opacity: 0; transition: opacity .6s; }
+
+/* --- 1 · LITTLE PLANET: the paradise curls into a small world while it loads, then unrolls around you ---------- */
+body.intro1 .ix-en { top: calc(max(22px, env(safe-area-inset-top)) + 40px); }
+body.intro1 .ix-title { left: 0; right: 0; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 70px); text-align: center; font-size: clamp(64px, 17.5vw, 330px); }
+body.intro1 .ix-title span + span { margin-left: .22em; }
+body.intro1 .ix-count { left: 24px; bottom: max(26px, env(safe-area-inset-bottom)); font-size: 44px; }
+body.intro1 .ix-cap { left: 120px; bottom: max(30px, env(safe-area-inset-bottom)); }
+body.intro1 #intro.off .ix-title span { transform: translateY(-14vh) scale(1.06); filter: blur(16px); opacity: 0; }
+body.intro1 #intro.off .ix-title span + span { transition-delay: .12s; }
+body.intro1 #hero p { font-family: var(--font-ko), serif; font-size: clamp(18px, 2.2vw, 30px); }
+
+/* --- 2 · CINEMASCOPE: the whole 360° laid flat as one ultra-wide strip, then it opens into the room you stand in --- */
+body.intro2 #hero { display: none; }
+body.intro2 .ix-title { font-size: clamp(64px, 15vw, 300px); }
+body.intro2 .ix-title span { position: absolute; }
+body.intro2 .ix-title span:first-child { left: 3vw; bottom: calc(50vh + var(--band, 200px) / 2 + 1.2vw); }
+body.intro2 .ix-title span:last-child { right: 3vw; top: calc(50vh + var(--band, 200px) / 2 + 1.6vw); }
+body.intro2 .ix-title { inset: 0; }
+body.intro2 .ix-en { top: calc(50vh - var(--band, 200px) / 2 - 26px); left: auto; width: min(560px, 50vw); }
+body.intro2 .ix-cap { left: 3vw; top: calc(50vh + var(--band, 200px) / 2 + 14px); }
+body.intro2 .ix-count { left: 24px; bottom: max(26px, env(safe-area-inset-bottom)); font-size: 44px; }
+body.intro2 .ix-band { position: absolute; left: 0; right: 0; top: calc(50vh - var(--band, 200px) / 2); height: var(--band, 200px); border-top: 1px solid rgba(255, 248, 234, .35); border-bottom: 1px solid rgba(255, 248, 234, .35); }
+body.intro2 .ix-band::before, body.intro2 .ix-band::after { content: ""; position: absolute; top: -7px; bottom: -7px; width: 1px; background: rgba(255, 248, 234, .5); left: 50%; }
+body.intro2 .ix-band::after { top: auto; bottom: -7px; height: 6px; }
+body.intro2 .ix-band::before { height: 6px; }
+body.intro2 #intro > div:first-child { right: 50%; transform: translateX(50%); }
+body.intro2 #intro.off .ix-title span:first-child { transform: translateX(-60vw); filter: blur(10px); opacity: 0; }
+body.intro2 #intro.off .ix-title span:last-child { transform: translateX(60vw); filter: blur(10px); opacity: 0; }
+body.intro2 #intro.off .ix-band { opacity: 0; transition: opacity .5s; }
+
+/* --- 3 · POSTER: a full-bleed type poster on a 12-column grid; the scene waits, blurred, behind the glass ------------ */
+body.intro3 .ix-grid { display: block; position: absolute; inset: 0 24px; background: repeating-linear-gradient(90deg, rgba(255, 248, 234, .1) 0 1px, transparent 1px calc((100% + 1px) / 12)); border-right: 1px solid rgba(255, 248, 234, .1); transition: transform 1.4s var(--ease), opacity 1.2s; transform-origin: 50% 50%; }
+body.intro3 .ix-title { left: 18px; right: 18px; top: calc(max(22px, env(safe-area-inset-top)) + 54px); font-size: clamp(72px, min(20vw, 34vh), 420px); line-height: .86; }
+body.intro3 .ix-cap { display: none; }
+body.intro3 .ix-title { text-align: left; }
+body.intro3 .ix-title span { display: block; }
+body.intro3 .ix-title span:last-child { text-align: right; }
+body.intro3 .ix-en { top: auto; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 150px); left: calc(24px + (100% - 48px) / 12 * 6); }
+body.intro3 .ix-info { display: block; position: absolute; left: calc(24px + (100% - 48px) / 12 * 6 + 8px); right: 24px; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 190px); font-family: var(--font-ko), serif; font-size: 14px; line-height: 1.7; color: rgba(255, 248, 234, .85); text-shadow: 0 1px 12px rgba(0, 0, 0, .4); }
+body.intro3 .ix-info b { font-family: var(--font-type); font-weight: 400; font-size: 11px; letter-spacing: .14em; color: #ffc832; margin-right: 10px; }
+body.intro3 .ix-count { left: 24px; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 70px); font-size: clamp(64px, 10vw, 170px); }
+body.intro3 .ix-ruler { display: block; position: absolute; left: 24px; right: 24px; bottom: max(24px, env(safe-area-inset-bottom)); height: 34px; }
+.ix-ruler i { position: absolute; left: 0; top: 0; height: 14px; background: repeating-linear-gradient(90deg, rgba(255, 248, 234, .35) 0 1px, transparent 1px calc((100% - 1px) / 100)); }
+.ix-ruler i.all { right: 0; }
+.ix-ruler i.on { right: 0; background: repeating-linear-gradient(90deg, #ffc832 0 1px, transparent 1px calc((100% - 1px) / 100)); clip-path: inset(0 calc(100% - var(--p, 0%)) 0 0); transition: clip-path .5s var(--ease); }
+.ix-ruler b { position: absolute; top: 0; width: 1px; height: 22px; background: rgba(255, 248, 234, .7); }
+.ix-ruler span { position: absolute; top: 24px; transform: translateX(-50%); font-family: var(--font-type); font-size: 10px; letter-spacing: .1em; color: rgba(255, 248, 234, .6); }
+body.intro3 #intro > div:first-child { bottom: calc(max(24px, env(safe-area-inset-bottom)) + 74px); }
+body.intro3.intro canvas#gl { filter: blur(18px) brightness(.62) saturate(1.15); transform: scale(1.06); transition: filter 2.2s var(--ease), transform 2.6s var(--ease); }
+body.intro3.entered canvas#gl { filter: none; transform: none; }
+body.intro3 #hero h1, body.intro3 #hero .cue { display: none; }
+body.intro3 #hero p { position: absolute; left: 24px; bottom: 90px; text-align: left; font-family: var(--font-ko), serif; font-size: clamp(20px, 2.6vw, 36px); }
+body.intro3 #intro.off .ix-grid { transform: scaleX(1.4); opacity: 0; }
+body.intro3 #intro.off .ix-title span { transform: translateY(-30vh); filter: blur(14px); opacity: 0; }
+body.intro3 #intro.off .ix-title span:last-child { transition-delay: .14s; }
+body.intro3 #intro.off .ix-info, body.intro3 #intro.off .ix-ruler { opacity: 0; transition: opacity .5s; }
+
+@media (max-width: 760px) {
+  .ix-meta span:nth-child(3), .ix-meta span:nth-child(4) { display: none; }
+  body.ixd #intro > div:first-child, body.intro2 #intro > div:first-child { left: 16px; right: 16px; transform: none; }
+  body.ixd #intro .enter { justify-content: stretch; }
+  body.ixd #intro .enter button { flex: 1; }
+  body.intro1 .ix-title { bottom: calc(max(24px, env(safe-area-inset-bottom)) + 120px); font-size: 21vw; }
+  body.intro1 .ix-count, body.intro2 .ix-count { left: auto; right: 16px; top: calc(max(22px, env(safe-area-inset-top)) + 70px); bottom: auto; font-size: 34px; }
+  body.intro1 .ix-cap { left: 16px; top: calc(max(22px, env(safe-area-inset-top)) + 82px); bottom: auto; }
+  body.intro2 .ix-title { font-size: 24vw; }
+  body.intro2 .ix-en { width: auto; left: 16px; right: 16px; top: calc(max(22px, env(safe-area-inset-top)) + 40px); }
+  body.intro3 .ix-title { font-size: 31vw; }
+  body.intro3 .ix-info { left: 16px; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 180px); font-size: 13px; }
+  body.intro3 .ix-en { left: 16px; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 300px); }
+  body.intro3 .ix-count { bottom: calc(max(24px, env(safe-area-inset-bottom)) + 340px); font-size: 22vw; }
+  body.intro3 #intro > div:first-child { bottom: calc(max(24px, env(safe-area-inset-bottom)) + 60px); }
+}
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
@@ -443,6 +546,16 @@ body.ui5 .lab .stem { height: 26px; }
   <div class="en" id="introEn"></div>
   <div class="ld"><i id="bar"></i></div>
   <div class="enter" id="enter"><button class="primary" id="goSound">소리와 함께 입장</button><button id="goQuiet">조용히 입장</button></div>
+</div><div class="ix" aria-hidden="true">
+  <div class="ix-grid"></div>
+  <div class="ix-meta"><span>AKMU</span><span>4집 「개화」</span><span>01 · 선공개</span><span>360° · 2026</span></div>
+  <div class="ix-en" id="ixEn"></div>
+  <div class="ix-band"></div>
+  <h2 class="ix-title"><span>소문의</span><span>낙원</span></h2>
+  <div class="ix-info"><b>01</b>소문의 낙원 — 선공개 · 04.03<br><b>04</b>기쁨, 슬픔, 아름다운 마음 — 타이틀<br><b>AKMU</b>정규 4집 「개화 (FLOWERING)」 · 2026.04.07</div>
+  <div class="ix-count"><span id="ixCount">000</span><small>%</small></div>
+  <div class="ix-cap" id="ixCap">Loading the paradise</div>
+  <div class="ix-ruler" id="ixRuler"><i class="all"></i><i class="on" id="ixOn"></i></div>
 </div></div>
 
 <canvas id="gl"></canvas>
@@ -536,6 +649,8 @@ const LAB = UI >= 6 ? 1 : UI, DIR = UI >= 6 ? 2 : UI;
 if (UI === 7) document.body.classList.add("ui6");
 document.body.classList.add("ui" + UI, "lab" + LAB, "dir" + DIR);
 if (UI) document.body.classList.add("draft");
+const INTRO = Math.max(0, Math.min(3, parseInt(new URLSearchParams(location.search).get("intro"), 10) || 0));
+if (INTRO) document.body.classList.add("ixd", "intro" + INTRO);
 const DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"], DIRS_KO = ["북", "북동", "동", "남동", "남", "남서", "서", "북서"];
 const deg360 = (rad) => ((rad * 180 / Math.PI) % 360 + 360) % 360;
 const dirOf = (deg) => Math.round(deg / 45) % 8;
@@ -551,7 +666,8 @@ const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 2000);
 const scene = new THREE.Scene();
 // full-size panoramas (4K) replace the 3K copies on desktops
 const big = renderer.capabilities.maxTextureSize >= 4096 && !isTouch;
-const FOV_MIN = 50, FOV_MAX = 90, FOV_REST = 72;
+// entry drafts (?intro=1..3) land on a wider view, a little wider still on tall phone screens
+const FOV_MIN = 50, FOV_MAX = INTRO ? 100 : 90, FOV_REST = INTRO ? (innerHeight > innerWidth ? 92 : 84) : 72;
 
 // ---------------------------------------------------------------- ambience (synthesised, no audio files)
 const sound = { ctx: null, on: false, nodes: {} };
@@ -1150,6 +1266,112 @@ if (!isTouch && !calm) document.querySelectorAll(".mag, nav.places").forEach((el
   el.addEventListener("pointerleave", () => { el.style.transition = ""; el.style.transform = ""; });
 });
 
+// ---------------------------------------------------------------- entry drafts (?intro=1..3)
+// A full-screen pass that draws the panorama through a projection the normal camera cannot do:
+//   d = 0 is the ordinary camera (gnomonic), d = 1 is stereographic (the "little planet"); values between morph smoothly.
+//   flat = 1 lays the whole panorama out as an ultra-wide strip (equirectangular crop) instead.
+// At d = 0, flat = 0 it matches the camera exactly, so the hand-over to the normal scene is invisible.
+const PROJ_FRAG = `
+uniform sampler2D map; uniform vec3 fwd, rgt, upv, fwdH; uniform float s, d, aspect, flatK, hspan, vspan, fade; varying vec2 vUv;
+vec3 persp(vec2 p){
+  vec3 r = vec3(p.x * aspect * s, p.y * s, 1.0 + d);
+  float rr = dot(r, r), cr = -d * (1.0 + d);
+  float t = (-cr + sqrt(max(0.0, cr * cr - rr * (d * d - 1.0)))) / rr;
+  vec3 P = vec3(0.0, 0.0, -d) + t * r;
+  return normalize(rgt * P.x + upv * P.y + fwd * P.z);
+}
+vec3 strip(vec2 p){
+  float a = p.x * hspan, b = clamp(p.y * vspan, -1.5707, 1.5707);
+  vec3 side = normalize(cross(fwdH, vec3(0.0, 1.0, 0.0)));
+  return cos(b) * (cos(a) * fwdH + sin(a) * side) + sin(b) * vec3(0.0, 1.0, 0.0);
+}
+void main(){
+  vec2 p = vUv * 2.0 - 1.0;
+  vec3 w = normalize(mix(persp(p), strip(p), flatK));
+  float u = atan(w.z, w.x) / 6.2831853, v = acos(clamp(w.y, -1.0, 1.0)) / 3.14159265;
+  vec2 a = vec2(fract(u), 1.0 - v), b = vec2(fract(u + 0.5) - 0.5, 1.0 - v);
+  // take mip gradients from whichever u is continuous here, so the panorama seam leaves no line
+  vec2 g = fwidth(a.x) < fwidth(b.x) ? a : b;
+  vec4 c = textureGrad(map, a, dFdx(g), dFdy(g));
+  c.rgb *= fade;
+  gl_FragColor = c;
+  #include <colorspace_fragment>
+}`;
+const proj = {
+  on: INTRO === 1 || INTRO === 2,
+  scene: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1),
+  mat: new THREE.ShaderMaterial({ depthWrite: false, depthTest: false, vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`, fragmentShader: PROJ_FRAG,
+    uniforms: { map: { value: null }, fwd: { value: new THREE.Vector3() }, rgt: { value: new THREE.Vector3() }, upv: { value: new THREE.Vector3() }, fwdH: { value: new THREE.Vector3() },
+      s: { value: 1 }, d: { value: 0 }, aspect: { value: 1 }, flatK: { value: 0 }, hspan: { value: Math.PI }, vspan: { value: 1 }, fade: { value: 1 } } }),
+  d: 0, s: 1, flat: 0, hspan: Math.PI,
+};
+{ const q = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), proj.mat); q.frustumCulled = false; proj.scene.add(q); }
+function renderProj() {
+  const u = proj.mat.uniforms, fw = lookDir();
+  u.map.value = place.mat.uniforms.map.value;
+  u.fwd.value.copy(fw);
+  u.rgt.value.set(-Math.sin(yaw), 0, Math.cos(yaw));                 // same basis camera.lookAt builds
+  u.upv.value.crossVectors(u.rgt.value, fw).normalize();
+  u.fwdH.value.set(Math.cos(yaw), 0, Math.sin(yaw));
+  u.aspect.value = camera.aspect; u.s.value = proj.s; u.d.value = proj.d; u.flatK.value = proj.flat;
+  u.hspan.value = proj.hspan; u.vspan.value = proj.hspan / camera.aspect;
+  renderer.render(proj.scene, proj.cam);
+}
+const ss = THREE.MathUtils.smoothstep, lerp = THREE.MathUtils.lerp;
+const S_LAND = () => Math.tan(THREE.MathUtils.degToRad(FOV_REST / 2));
+let spin = NORTH - 1.4;
+// where the entrance stands at progress e (0 = the loading view, 1 = landed)
+function introView(e) {
+  if (calm) e = 1;
+  spin += 0.0011 * (1 - e);
+  yaw = spin + wrap(NORTH - spin) * ss(e, 0.3, 1);
+  const portrait = innerHeight > innerWidth;
+  if (INTRO === 1) {
+    // little planet: look straight down through a stereographic lens, then unroll it into the ordinary view
+    const sPlanet = 2 / (0.6 * Math.min(1, camera.aspect));
+    pitch = lerp(-Math.PI / 2 + 0.002, -0.05, ss(e, 0.08, 1));
+    proj.d = 1 - ss(e, 0.22, 0.94);
+    proj.s = Math.exp(lerp(Math.log(sPlanet), Math.log(S_LAND()), ss(e, 0.04, 0.9)));
+    proj.flat = 0;
+  } else if (INTRO === 2) {
+    // cinemascope: the full circle as one strip across the screen, opening top and bottom into the scene
+    proj.hspan = portrait ? 1.25 : Math.PI;
+    pitch = -0.05 * ss(e, 0.3, 1);
+    proj.d = 0; proj.s = S_LAND();
+    proj.flat = 1 - ss(e, 0.18, 0.92);
+    const vspan = proj.hspan / camera.aspect, frac = Math.min(0.62, 0.5 / vspan);   // band ≈ ±29° of sky and ground
+    const band = innerHeight * lerp(frac, 1, ss(e, 0, 0.55));
+    const cut = Math.max(0, (innerHeight - band) / 2);
+    canvas.style.clipPath = e >= 1 ? "" : `inset(${cut}px 0 ${cut}px 0)`;
+    document.body.style.setProperty("--band", (innerHeight * frac).toFixed(0) + "px");
+  } else {
+    // poster: a wide, tilted-up view behind blurred glass that settles as the glass clears
+    pitch = lerp(0.32, -0.05, ss(e, 0, 1));
+    fov = fovTarget = lerp(portrait ? 108 : 100, FOV_REST, ss(e, 0, 1));
+    return;
+  }
+  fov = fovTarget = THREE.MathUtils.radToDeg(2 * Math.atan(proj.s));
+}
+// loading: a counter that rolls toward the real progress, and (poster) a ruler that fills
+const load = { shown: 0, target: 0 };
+function setLoad(p) {
+  load.target = p;
+  $("#bar").style.width = p + "%";
+  $("#ixRuler").style.setProperty("--p", p + "%");
+  if (p >= 100) $("#ixCap").textContent = "Ready · 들어가 보세요";
+}
+function stepLoad() {
+  if (load.shown >= load.target) return;
+  load.shown = Math.min(load.target, load.shown + Math.max(1, (load.target - load.shown) * 0.15));
+  $("#ixCount").textContent = String(Math.floor(load.shown)).padStart(3, "0");
+}
+if (INTRO) {
+  $("#ixEn").innerHTML = [..."Paradise of Rumors"].map((c) => `<span>${c === " " ? "&nbsp;" : c}</span>`).join("");
+  $("#goSound").innerHTML = "<span>✦</span>소리와 함께 입장";
+  const r = $("#ixRuler");
+  for (let i = 0; i <= 100; i += 10) r.insertAdjacentHTML("beforeend", `<b style="left:${i}%"></b><span style="left:${i}%">${String(i).padStart(3, "0")}</span>`);
+}
+
 // ---------------------------------------------------------------- cinematic entrance: scroll brings you down from the sky
 const intro = { p: 0, target: 0, auto: false, lastInput: 0, done: false };
 const heroSub = "모래언덕 아래, 호숫가의 작은 축제";
@@ -1165,7 +1387,8 @@ function stepIntro() {
   if (performance.now() - intro.lastInput > 1600) intro.target = Math.min(1, intro.target + 0.0045);
   intro.p += (intro.target - intro.p) * 0.08;
   const p = intro.p, e = p * p * (3 - 2 * p);
-  yaw = NORTH - 0.5 + 0.5 * e; pitch = 1.05 * (1 - e) - 0.05 * e; fov = fovTarget = 96 - 24 * e;
+  if (INTRO) introView(e);
+  else { yaw = NORTH - 0.5 + 0.5 * e; pitch = 1.05 * (1 - e) - 0.05 * e; fov = fovTarget = 96 - 24 * e; }
   const h = $("#heroTitle");
   h.style.transform = `scale(${1 + e * 0.5}) translateY(${-e * 30}px)`;
   h.style.opacity = Math.max(0, 1 - Math.max(0, p - 0.45) * 2.4).toFixed(3);
@@ -1173,6 +1396,7 @@ function stepIntro() {
   [...$("#heroSub").children].forEach((s, i) => s.classList.toggle("on", p > 0.08 + i * 0.07 && p < 0.72));
   $("#hero .cue").style.opacity = Math.max(0, 0.85 - p * 4);
   if (p > 0.985) {
+    if (INTRO) { intro.p = intro.target = 1; introView(1); canvas.style.clipPath = ""; }
     intro.done = true;
     document.body.classList.remove("intro");
     lastInput = performance.now();
@@ -1186,6 +1410,7 @@ let lastFrame = 0;
 renderer.setAnimationLoop(() => {
   if (canvas.width !== Math.floor((innerWidth || 1) * renderer.getPixelRatio())) resize();
   stepIntro();
+  if (INTRO) { stepLoad(); if (!intro.started && place) introView(0); }
   if (intro.done && !tweening) {
     if (!drag) {
       // momentum, then the rubber band pulls the view back inside its limits
@@ -1206,7 +1431,7 @@ renderer.setAnimationLoop(() => {
   stepDeck(dt);
   curPos.x += (curPos.tx - curPos.x) * 0.35; curPos.y += (curPos.ty - curPos.y) * 0.35;
   cur.style.transform = `translate(${curPos.x}px, ${curPos.y}px)`;
-  renderer.render(scene, camera);
+  if (proj.on && place && !intro.done) renderProj(); else renderer.render(scene, camera);
 });
 
 // ---------------------------------------------------------------- start
@@ -1216,17 +1441,20 @@ renderer.setAnimationLoop(() => {
   resize();
   island(null);
   ids = await (await fetch("ids.json" + V)).json();
-  $("#bar").style.width = "25%";
+  setLoad(25);
   await buildPlace("desert", "D0");
-  $("#bar").style.width = "70%";
+  setLoad(70);
+  // entry drafts show the paradise behind the loader as soon as it exists
+  if (INTRO) { show("desert"); document.body.classList.add("preview"); }
   await buildPlace("room", "R0");
-  $("#bar").style.width = "100%";
+  setLoad(100);
   places.desert.yaw = places.room.yaw = NORTH;
   show("desert");
   yaw = NORTH - 0.5; pitch = 1.05; fov = fovTarget = 96;
   $("#enter").classList.add("on");
   const enter = (withSound) => {
     $("#intro").classList.add("off");
+    document.body.classList.add("entered");
     if (withSound) setSound(true); else $("#bSound").classList.add("off");
     intro.started = true; intro.lastInput = performance.now();
     if (calm) intro.target = intro.p = 1;
@@ -1235,7 +1463,7 @@ renderer.setAnimationLoop(() => {
   $("#goSound").onclick = () => enter(true);
   $("#goQuiet").onclick = () => enter(false);
   for (const [vn, items] of Object.entries(CONTENT)) for (const key of Object.keys(items)) if (!items[key].enter) new Image().src = (vn === "desert" ? "D_" : "R_") + key + ".jpg" + V;
-  window.__pano = { places, open, travel, get place() { return place?.name; }, aim: (u, v) => { const d = uvDir(u, v); yaw = Math.atan2(d.z, d.x); pitch = Math.asin(d.y); }, uvDir, setHover, closeShot, skipIntro: () => { intro.target = intro.p = 1; } };
+  window.__pano = { introTo: (p) => { intro.target = intro.p = p; intro.lastInput = performance.now() + 1e9; }, places, open, travel, get place() { return place?.name; }, aim: (u, v) => { const d = uvDir(u, v); yaw = Math.atan2(d.z, d.x); pitch = Math.asin(d.y); }, uvDir, setHover, closeShot, skipIntro: () => { intro.target = intro.p = 1; } };
 })();
 </script>
 </body>
