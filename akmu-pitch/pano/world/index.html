@@ -475,7 +475,7 @@ body.ui5 .lab .stem { height: 26px; }
   <div class="card" id="card"></div>
 </div>
 <div id="hint" class="glass chrome">드래그해서 둘러보고, 이름표나 목록을 눌러 보세요</div>
-<script>if (/[?&]ui=[67]\b/.test(location.search)) document.getElementById("hint").textContent = "드래그해서 둘러보고, 이름표를 눌러 보세요";</script>
+<script>if (!/[?&]ui=/.test(location.search) || /[?&]ui=[67]\b/.test(location.search)) document.getElementById("hint").textContent = "드래그해서 둘러보고, 이름표를 눌러 보세요";</script>
 <div id="flash"></div>
 <div id="cur"></div>
 <div class="badge">CONCEPT DRAFT · 360 · <a href="https://github.com/Del2f/blue-room-360/blob/gh-pages/akmu-pitch/CREDITS.md" target="_blank" rel="noopener">에셋 크레딧</a></div>
@@ -528,8 +528,9 @@ const V = "?r=20261025-v7";
 const PLACE_NAME = { desert: "소문의 낙원", room: "방" };
 
 const $ = (s) => document.querySelector(s);
-// UI drafts: ?ui=1..5 swaps the labels, compass and glass styling; no param keeps the current look
-const UI = Math.max(0, Math.min(7, parseInt(new URLSearchParams(location.search).get("ui"), 10) || 0));
+// UI drafts: ?ui=1..7 swaps the labels, compass and glass styling; draft 7 is the default, ?ui=0 shows the old look
+const uiParam = new URLSearchParams(location.search).get("ui");
+const UI = uiParam === null ? 7 : Math.max(0, Math.min(7, parseInt(uiParam, 10) || 0));
 // each draft = a label style (lab*) + a compass style (dir*); 6 and 7 mix draft 1's labels with draft 2's heading tape
 const LAB = UI >= 6 ? 1 : UI, DIR = UI >= 6 ? 2 : UI;
 if (UI === 7) document.body.classList.add("ui6");
