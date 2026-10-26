@@ -42,6 +42,8 @@
 <main id="list"></main>
 <script>
   const DRAFTS = [
+    ["COMBINED", "드래프트 2 방위 + 드래프트 1 라벨 · 목록과 낙원/방 버튼 제거",
+      "요청하신 조합입니다. <strong>방위 표시</strong>는 드래프트 2의 위쪽 헤딩 테이프(눈금, N·NE…, 콘텐츠 방향 ▼)와 '027° NE · 북동' 글래스 알약입니다. 뷰파인더 모서리와 조준점은 넣지 않았습니다. <strong>오브젝트 라벨</strong>은 드래프트 1의 '✦ 무대 CONCERT' XP 글래스 알약이고, 마우스를 올리면 금색 링이 켜집니다. 왼쪽 콘텐츠 목록(모바일 ≡ 버튼 포함)과 '낙원 / 방' 전환 버튼은 없앴습니다. 장소 이동은 장면 속 '언덕 위의 문'과 방의 '창문'으로 합니다.", 6],
     ["ZERO RULER", "글래스 알약 + 눈금자 나침반",
       "<strong>라벨</strong>은 XP 알약을 그대로 옮겼습니다. 금색 ✦, 한글 이름, 흐린 영문 태그(CONCERT, M/V…) 순서이고, 마우스를 올리면 금색 링이 켜집니다. <strong>나침반</strong>은 참고 사이트의 '-100 BZ' 눈금자처럼 바꿨습니다. 방위(N·NE…)와 각도(030·060…)가 새겨진 눈금 위에 콘텐츠 이름이 알약으로 떠 있고, 위쪽 알약에 '✦ NE 027° 무대'처럼 지금 보는 방향과 가운데 있는 콘텐츠가 나옵니다."],
     ["VIEWFINDER", "카메라 뷰파인더 HUD",
@@ -53,8 +55,8 @@
     ["TICKER", "전광판 나침반 + 세로 이정표",
       "<strong>나침반</strong>은 화면 아래 전체 폭의 글래스 띠입니다. 지금 보는 방향 순서대로 '✦ 레코드 가판대 ✦ 언덕 위의 문 ✦ 무대 ✦ 옷걸이…'가 전광판처럼 흐르고, 가운데 온 항목이 밝아집니다. 이름이 겹치면 서로 비켜섭니다. <strong>라벨</strong>은 세로쓰기 글래스 기둥으로, 이정표처럼 서 있고 화면 가장자리로 갈수록 살짝 비스듬히 돌아 장면 속에 박힌 느낌을 줍니다."],
   ];
-  document.getElementById("list").innerHTML = DRAFTS.map(([en, ko, desc], i) => {
-    const n = i + 1;
+  document.getElementById("list").innerHTML = DRAFTS.map(([en, ko, desc, num], i) => {
+    const n = num || i;
     return `<section>
       <div class="head"><b>DRAFT 0${n}</b><h2>${en}</h2><span style="font-family:'Gowun Batang',serif;color:var(--soft)">${ko}</span><a class="glass" href="../?ui=${n}">✦ 360 화면에서 보기</a></div>
       <p class="desc">${desc}</p>
