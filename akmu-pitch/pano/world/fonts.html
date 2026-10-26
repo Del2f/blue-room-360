@@ -9,10 +9,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="ko-fonts.js"></script>
 <style>
-  /* Side-by-side Korean font drafts paired with the English display font (Henny Penny). */
+  /* Side-by-side Korean font drafts paired with the English font (Special Elite). */
   :root { --paper: #F3ECDC; --ink: #2B2620; --ink-soft: #6B5F50; --marigold: #E9B949; --rust: #B4543A; --cream: #FBF7EE; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--paper); color: var(--ink); font-family: "Henny Penny", Pretendard, serif; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: "Special Elite", Pretendard, serif; }
   header { padding: 40px 16px 8px; max-width: 1120px; margin: 0 auto; }
   header h1 { margin: 0; font-size: clamp(36px, 7vw, 60px); font-weight: 400; line-height: 1.05; }
   header p { margin: 10px 0 0; font-family: Pretendard, sans-serif; font-size: 14px; line-height: 1.6; color: var(--ink-soft); max-width: 720px; }
@@ -34,19 +34,19 @@
 <body>
 <header>
   <h1>Paradise of Rumors</h1>
-  <p>영문은 모두 Henny Penny(콘서트 로고 레터링과 가장 가까운 무료 폰트)로 통일했습니다. 아래는 함께 쓸 무료 한글 폰트 시안입니다. 모두 Google Fonts에서 받을 수 있는 SIL OFL 폰트로, 상업적으로도 무료입니다. 카드 아래 버튼을 누르면 실제 3D 화면에 그 한글 폰트를 적용해서 볼 수 있습니다(<code>?ko=</code> 파라미터).</p>
+  <p>영문은 모두 Special Elite(타자기체)로 통일했고, 한글 기본값은 시안 B 고운바탕입니다. 아래는 함께 쓸 무료 한글 폰트 시안입니다. 모두 Google Fonts에서 받을 수 있는 SIL OFL 폰트로, 상업적으로도 무료입니다. 카드 아래 버튼을 누르면 실제 3D 화면에 그 한글 폰트를 적용해서 볼 수 있습니다(<code>?ko=</code> 파라미터).</p>
 </header>
 <main class="grid" id="grid"></main>
 <script>
   const BASE = [
-    { key: "", family: "Pretendard", note: "현재 기본값 · 깔끔한 산세리프" },
+    { key: "", family: "Pretendard", note: "이전 기본값 · 깔끔한 산세리프" },
   ];
   const drafts = [...BASE.map((b) => ({ ...b, base: true })), ...Object.entries(KO_FONTS).map(([key, f]) => ({ key, ...f, css: f.family.replace(/ /g, "+") + (f.weights ? `:wght@${f.weights}` : "") }))];
-  const families = ["Henny+Penny", ...drafts.filter((d) => d.css).map((d) => d.css)];
+  const families = ["Special+Elite", ...drafts.filter((d) => d.css).map((d) => d.css)];
   document.head.insertAdjacentHTML("beforeend", `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${families.map((f) => "family=" + f).join("&")}&display=swap">` +
     `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">`);
   document.getElementById("grid").innerHTML = drafts.map((d, i) => {
-    const font = `font-family: "Henny Penny", "${d.family}", serif`;
+    const font = `font-family: "Special Elite", "${d.family}", serif`;
     const q = d.key ? `?ko=${d.key}` : "";
     return `<article class="card${d.base ? " base" : ""}" style='${font}'>
       <div class="id"><b>${d.base ? "기본" : "시안 " + String.fromCharCode(64 + i)} · ${d.family}</b><span>${d.key || "default"}</span></div>
@@ -55,7 +55,7 @@
       <p class="slip">모래언덕 아래 호숫가에 축제가 열린대.<br>문을 열면 누군가의 방이 나온대.</p>
       <div class="menu"><span>CONCERT<small>무대</small></span><span>ALBUM<small>레코드 가판대</small></span><span>NOTES<small>가사 노트</small></span></div>
       <p class="note">${d.note}</p>
-      <div class="go"><a href="./${q}">360 화면에서 보기</a></div>
+      ${d.base ? "" : `<div class="go"><a href="./${q}">360 화면에서 보기</a></div>`}
     </article>`;
   }).join("");
 </script>

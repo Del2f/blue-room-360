@@ -1,5 +1,5 @@
 /* Korean font preview: add ?ko=<key> to a page URL (e.g. index.html?ko=gowun-batang) to swap the Korean font.
-   English always uses Henny Penny; see fonts.html for the side-by-side drafts. All fonts are free (SIL OFL, Google Fonts). */
+   English always uses Special Elite; Korean defaults to Gowun Batang; see fonts.html for the side-by-side drafts. All fonts are free (SIL OFL, Google Fonts). */
 window.KO_FONTS = {
   "grandiflora": { family: "Grandiflora One", note: "장식 세리프 · 로고의 빅토리안 곡선과 가장 가까움" },
   "gowun-batang": { family: "Gowun Batang", weights: "400;700", note: "부드러운 바탕체 · 동화 같은 본문" },
