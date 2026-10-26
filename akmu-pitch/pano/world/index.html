@@ -226,7 +226,188 @@ body.intro #hero { opacity: 1; }
 .badge a { color: rgba(255, 248, 234, .8); text-decoration: underline; text-underline-offset: 2px; pointer-events: auto; }
 .badge a:hover { color: #fff8ea; }
 
+/* ======================= UI drafts: ?ui=1..5 (no param = the current look) ======================= */
+/* extras that only the drafts show */
+.lab .idx, .lab .en, .lab .deg, .lab .fr, #compass .num, #compass .card-dir.sub, #compass .read, #compass .cdot span { display: none; }
+.lab .nm { display: inline; }
+
+/* shared glass = why.zero.university's "✦ 500 XP" pill: 40% black, 1px white hairline, saturate(120%) blur(14px),
+   a 135° rim that is bright on two corners, white text with a dimmer label, and a gold ring that lights up when focused */
+body.draft .glass, body.ui1 #compass .cdot, body.ui1 #compass .read, body.ui2 #compass .read {
+  background: rgba(0, 0, 0, .4); -webkit-backdrop-filter: saturate(120%) blur(14px); backdrop-filter: saturate(120%) blur(14px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .3), inset 0 1px rgba(255, 255, 255, .08), inset 0 0 0 1px rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .9); font-weight: 500; }
+body.draft .glass::before, body.ui1 #compass .cdot::before, body.ui1 #compass .read::before, body.ui2 #compass .read::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1px; mix-blend-mode: normal;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .4), rgba(255, 255, 255, 0) 35% 65%, rgba(255, 255, 255, .4));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#fff 0 0) content-box exclude, linear-gradient(#fff 0 0); }
+body.draft .glass::after { content: ""; position: absolute; inset: -2px; border-radius: inherit; pointer-events: none; border: 2px solid rgba(255, 200, 50, 0); box-shadow: 0 0 0 rgba(255, 190, 40, 0); transition: border-color .4s, box-shadow .4s; }
+body.draft .lab.on .tagx::after, body.draft #dock li button.on::after { border-color: rgba(255, 200, 50, .85); box-shadow: 0 0 18px rgba(255, 190, 40, .45); }
+body.draft .star { color: #ffc832; font-style: normal; }
+body.draft .lab.on .tagx { background: rgba(0, 0, 0, .55); }
+body.ui2 .lab .tagx::after, body.ui3 .lab .tagx::after { display: none; }
+body.ui2 .lab.on .tagx, body.ui3 .lab.on .tagx { background: none; }
+body.draft #compass .read i { display: none; }
+body.ui3 #compass .read i { display: inline; }
+body.draft nav.places .thumb { background: rgba(255, 248, 234, .9); }
+body.draft #dock h4, body.draft .mono, body.draft .lab .en, body.draft .lab .deg, body.draft .lab .idx, body.draft #compass .card-dir, body.draft #compass .num, body.draft #compass .read {
+  font-family: var(--font-type); text-transform: uppercase; letter-spacing: .08em; font-variant-numeric: tabular-nums; font-weight: 400; }
+body.draft #dock { border-radius: 16px; }
+body.draft #dock li button::before { font-family: var(--font-type); font-weight: 400; color: rgba(255, 248, 234, .5); }
+body.draft #dock li button.on::before { color: var(--gold); }
+body.draft #hint { font-size: 12px; }
+body.draft .lab .tagx b { display: none; }
+
+/* --- 1 · ZERO RULER: why.zero's smoked pills + its measuring-ruler HUD as the compass ---------------------- */
+body.ui1 .lab .tagx { display: flex; align-items: center; gap: 6px; padding: 9px 14px; font-size: 15px; }
+body.ui1 .lab .tagx::after { inset: -2px; }
+body.ui1 .lab .nm::before { content: "✦"; color: #ffc832; font-size: 13px; margin-right: 6px; }
+body.ui1 .lab .nm { font-weight: 600; }
+body.ui1 .lab .en { display: inline-block; text-decoration: none; font-size: 11px; opacity: .6; }
+body.ui1 .lab.on .tagx { transform: translateY(-2px) scale(1.04); }
+body.ui1 .lab .stem { height: 22px; }
+body.ui1 #compass { width: min(760px, 84vw); height: 58px; border-radius: 0; overflow: visible; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+body.ui1 #compass::before { display: none; }
+body.ui1 #compass .mask { -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
+body.ui1 #compass .tick { top: 22px; height: 9px; background: rgba(255, 248, 234, .4); }
+body.ui1 #compass .tick.big { height: 16px; background: rgba(255, 248, 234, .75); }
+body.ui1 #compass .card-dir, body.ui1 #compass .num { display: block; top: 42px; font-size: 11px; color: rgba(255, 248, 234, .9); text-shadow: 0 1px 6px rgba(0, 0, 0, .4); }
+body.ui1 #compass .num { color: rgba(255, 248, 234, .5); }
+body.ui1 #compass .cdot { position: absolute; bottom: auto; top: 0; width: auto; height: auto; margin: 0; transform: translateX(-50%); padding: 3px 10px; border-radius: 999px; }
+body.ui1 #compass .cdot span { display: block; font-size: 11px; white-space: nowrap; color: rgba(255, 248, 234, .85); }
+body.ui1 #compass .cdot.on, body.ui1 #compass .cdot.focus { transform: translateX(-50%) scale(1.08); box-shadow: 0 4px 16px rgba(0, 0, 0, .3), inset 0 0 0 1.5px rgba(255, 200, 50, .9), 0 0 14px rgba(255, 190, 40, .4); }
+body.ui1 #compass .cdot.on span, body.ui1 #compass .cdot.focus span { color: #fff; }
+body.ui1 #compass .center { top: 20px; bottom: 18px; width: 1px; background: var(--gold); }
+body.ui1 #compass .read { display: block; position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%); padding: 11px 16px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+body.ui1 #compass .read em { font-style: normal; color: rgba(255, 255, 255, .6); margin-left: 8px; font-family: var(--font-ko), sans-serif; text-transform: none; letter-spacing: 0; }
+body.ui1 #compass .read span { display: none; }
+body.ui1 #hint { bottom: calc(max(20px, env(safe-area-inset-bottom)) + 110px); }
+
+/* --- 2 · VIEWFINDER: camera HUD — heading tape on top, focus brackets that lock onto what you aim at -------- */
+body.ui2 #labels::before { content: ""; position: absolute; inset: 18px; pointer-events: none; --c: rgba(255, 248, 234, .6);
+  background: linear-gradient(var(--c), var(--c)) 0 0 / 26px 1px, linear-gradient(var(--c), var(--c)) 0 0 / 1px 26px, linear-gradient(var(--c), var(--c)) 100% 0 / 26px 1px, linear-gradient(var(--c), var(--c)) 100% 0 / 1px 26px,
+    linear-gradient(var(--c), var(--c)) 0 100% / 26px 1px, linear-gradient(var(--c), var(--c)) 0 100% / 1px 26px, linear-gradient(var(--c), var(--c)) 100% 100% / 26px 1px, linear-gradient(var(--c), var(--c)) 100% 100% / 1px 26px; background-repeat: no-repeat; }
+body.ui2 #labels::after { content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px; pointer-events: none;
+  background: linear-gradient(rgba(255, 248, 234, .7), rgba(255, 248, 234, .7)) 50% 0 / 1px 6px, linear-gradient(rgba(255, 248, 234, .7), rgba(255, 248, 234, .7)) 50% 100% / 1px 6px,
+    linear-gradient(rgba(255, 248, 234, .7), rgba(255, 248, 234, .7)) 0 50% / 6px 1px, linear-gradient(rgba(255, 248, 234, .7), rgba(255, 248, 234, .7)) 100% 50% / 6px 1px; background-repeat: no-repeat; }
+body.ui2 .lab { transform: translate(-50%, -50%); }
+body.ui2 .lab .stem { display: none; }
+body.ui2 .lab .tagx { position: absolute; left: 30px; top: 50%; transform: translateY(-50%); background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; padding: 0; text-align: left; text-shadow: 0 1px 10px rgba(0, 0, 0, .55); }
+body.ui2 .lab .tagx::before { display: none; }
+body.ui2 .lab .idx, body.ui2 .lab .en, body.ui2 .lab .deg { display: inline; font-style: normal; text-decoration: none; font-size: 10px; opacity: .75; }
+body.ui2 .lab .idx::before { content: "["; } body.ui2 .lab .idx::after { content: "] "; }
+body.ui2 .lab .nm { display: block; font-size: 15px; font-weight: 600; margin: 2px 0; }
+body.ui2 .lab .deg { display: block; color: var(--gold); opacity: 0; transform: translateY(-4px); transition: opacity .3s, transform .4s var(--ease); }
+body.ui2 .lab.on .deg, body.ui2 .lab.focus .deg { opacity: 1; transform: none; }
+body.ui2 .lab .pip { width: 6px; height: 6px; }
+body.ui2 .lab .pip::after { display: none; }
+body.ui2 .lab .fr { display: block; position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px; pointer-events: none; opacity: 0; transform: scale(1.5); transition: opacity .3s, transform .5s var(--spring); --c: var(--cream);
+  background: linear-gradient(var(--c), var(--c)) 0 0 / 12px 1.5px, linear-gradient(var(--c), var(--c)) 0 0 / 1.5px 12px, linear-gradient(var(--c), var(--c)) 100% 0 / 12px 1.5px, linear-gradient(var(--c), var(--c)) 100% 0 / 1.5px 12px,
+    linear-gradient(var(--c), var(--c)) 0 100% / 12px 1.5px, linear-gradient(var(--c), var(--c)) 0 100% / 1.5px 12px, linear-gradient(var(--c), var(--c)) 100% 100% / 12px 1.5px, linear-gradient(var(--c), var(--c)) 100% 100% / 1.5px 12px; background-repeat: no-repeat; }
+body.ui2 .lab.focus .fr { opacity: .8; transform: scale(1); }
+body.ui2 .lab.on .fr { opacity: 1; transform: scale(.85); --c: var(--gold); }
+body.ui2 #compass { top: calc(max(16px, env(safe-area-inset-top)) + 52px); bottom: auto; width: min(560px, 64vw); height: 34px; border-radius: 0; overflow: visible; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+body.ui2 #compass::before { display: none; }
+body.ui2.idle #compass.chrome { transform: translateX(-50%) translateY(-10px); }
+body.ui2 #compass .tick { top: 0; height: 6px; background: rgba(255, 248, 234, .55); }
+body.ui2 #compass .tick.big { height: 11px; background: var(--cream); }
+body.ui2 #compass .card-dir, body.ui2 #compass .card-dir.sub, body.ui2 #compass .num { display: block; top: 14px; font-size: 10px; color: rgba(255, 248, 234, .85); text-shadow: 0 1px 6px rgba(0, 0, 0, .5); }
+body.ui2 #compass .num { color: rgba(255, 248, 234, .45); }
+body.ui2 #compass .cdot { bottom: auto; top: -9px; width: 0; height: 0; margin-left: -5px; border-radius: 0; background: none; box-shadow: none; border: 5px solid transparent; border-top: 6px solid var(--gold); }
+body.ui2 #compass .cdot.on, body.ui2 #compass .cdot.focus { transform: none; border-top-color: #ff9c6e; }
+body.ui2 #compass .center { top: -4px; bottom: auto; height: 16px; width: 1px; background: var(--cream); }
+body.ui2 #compass .read { display: flex; position: absolute; left: 50%; top: 34px; transform: translateX(-50%); gap: 8px; align-items: baseline; padding: 6px 14px; border-radius: 999px; white-space: nowrap; font-size: 10px; }
+body.ui2 #compass .read b { font-size: 14px; font-weight: 400; }
+body.ui2 #compass .read em { display: none; }
+body.ui2 #island { opacity: 0; pointer-events: none; }
+body.ui2 #dock { border-radius: 4px; }
+
+/* --- 3 · EDITORIAL: labels pulled out to the margins on leader lines, like captions in a magazine spread ------ */
+body.ui3 #labels::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(15, 10, 6, .38), transparent 22%, transparent 78%, rgba(15, 10, 6, .38)); }
+body.ui3 .lab { transform: none; width: 0; height: 0; }
+body.ui3 .lab .pip { position: absolute; left: -4px; top: -4px; }
+body.ui3 .lab .stem { position: absolute; top: 0; height: 1px; width: var(--w, 0); left: var(--l, 0); background: rgba(255, 248, 234, .7); transform-origin: 0 0; transform: rotate(var(--a, 0deg)); }
+body.ui3 .lab .tagx { position: absolute; top: var(--ty, 0); left: var(--tx, 0); transform: translate(var(--ax, 0), -50%); background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; padding: 0; white-space: nowrap; text-shadow: 0 1px 14px rgba(0, 0, 0, .55); }
+body.ui3 .lab .tagx::before { display: none; }
+body.ui3 .lab.r .tagx { text-align: right; }
+body.ui3 .lab .tagx { transition: none; }
+body.ui3 .lab .idx { display: inline; font-style: normal; font-size: 11px; color: var(--gold); margin-right: 6px; }
+body.ui3 .lab .nm { font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+body.ui3 .lab .en { display: block; text-decoration: none; font-size: 10px; letter-spacing: .2em; opacity: .7; margin-top: 2px; }
+body.ui3 .lab.on .nm { color: var(--gold); }
+body.ui3 .lab.on .stem { background: var(--gold); }
+body.ui3 #dock { display: none; }
+body.ui3 #compass { width: min(620px, 80vw); height: 64px; border-radius: 0; overflow: visible; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+body.ui3 #compass::before { display: none; }
+body.ui3 #compass .tick { top: 30px; width: 3px; height: 3px; margin-left: -1px; border-radius: 50%; background: rgba(255, 248, 234, .5); }
+body.ui3 #compass .tick.big { background: var(--cream); }
+body.ui3 #compass .num { display: none; }
+body.ui3 #compass .card-dir { top: 0; font-size: 0; }
+body.ui3 #compass .card-dir::after { content: attr(data-ko); font-family: var(--font-ko), serif; font-size: 22px; font-weight: 700; letter-spacing: 0; text-shadow: 0 1px 12px rgba(0, 0, 0, .5); }
+body.ui3 #compass .card-dir.sub { display: block; }
+body.ui3 #compass .card-dir.sub::after { font-size: 13px; font-weight: 400; opacity: .7; }
+body.ui3 #compass .cdot { bottom: 4px; width: 5px; height: 5px; margin-left: -2.5px; background: var(--cream); box-shadow: none; }
+body.ui3 #compass .cdot.on, body.ui3 #compass .cdot.focus { background: var(--gold); transform: scale(1.6); }
+body.ui3 #compass .center { top: 40px; bottom: 0; width: 1px; background: var(--gold); }
+body.ui3 #compass .read { display: block; position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); white-space: nowrap; font-family: var(--font-ko), serif; text-transform: none; letter-spacing: 0; font-size: 14px; text-shadow: 0 1px 12px rgba(0, 0, 0, .6); }
+body.ui3 #compass .read b, body.ui3 #compass .read span { display: none; }
+body.ui3 #compass .read i { font-style: normal; }
+body.ui3 #compass .read em { font-style: normal; color: var(--gold); }
+
+/* --- 4 · RADAR: a round glass dial — you stand in the middle, the view cone points up, the paradise turns around you --- */
+body.ui4 #compass { left: 24px; bottom: max(24px, env(safe-area-inset-bottom)); transform: none; width: 148px; height: 148px; border-radius: 50%; overflow: visible; }
+body.ui4.idle #compass.chrome, body.ui4.intro #compass.chrome { transform: translateY(10px); }
+body.ui4 #compass .mask { -webkit-mask-image: none; mask-image: none; border-radius: 50%; }
+body.ui4 #compass .center { left: 50%; top: 50%; bottom: auto; width: 120px; height: 120px; margin: -60px; border-radius: 50%; background: conic-gradient(from -36deg, rgba(255, 215, 161, .38), rgba(255, 215, 161, 0) 72deg, transparent 0); }
+body.ui4 #compass .center::after { content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px; border-radius: 50%; background: var(--cream); box-shadow: 0 0 10px rgba(255, 230, 190, .9); }
+body.ui4 #compass .tick { top: 0; width: 1px; height: 5px; margin: -2.5px 0 0 -.5px; background: rgba(255, 248, 234, .4); }
+body.ui4 #compass .tick.big { height: 9px; margin-top: -4.5px; background: rgba(255, 248, 234, .8); }
+body.ui4 #compass .card-dir { top: 0; transform: translate(-50%, -50%); font-size: 11px; }
+body.ui4 #compass .card-dir[data-ko="북"] { color: #ff9c6e; }
+body.ui4 #compass .cdot { bottom: auto; width: 8px; height: 8px; margin: -4px 0 0 -4px; }
+body.ui4 #compass .cdot.on, body.ui4 #compass .cdot.focus { transform: scale(1.6); background: #ff9c6e; }
+body.ui4 #compass .read { display: block; position: absolute; left: calc(100% + 14px); bottom: 10px; white-space: nowrap; font-size: 11px; text-shadow: 0 1px 8px rgba(0, 0, 0, .5); }
+body.ui4 #compass .read b { display: block; font-size: 22px; font-weight: 400; line-height: 1; }
+body.ui4 #compass .read span { display: block; opacity: .75; margin-top: 4px; }
+body.ui4 #compass .read em { display: block; font-style: normal; color: var(--gold); margin-top: 2px; font-family: var(--font-ko), sans-serif; text-transform: none; letter-spacing: 0; font-size: 14px; }
+body.ui4 #dock { top: 92px; transform: none; }
+body.ui4 .lab { transform: translate(-50%, -50%); }
+body.ui4 .lab .stem, body.ui4 .lab .pip { display: none; }
+body.ui4 .lab .tagx { display: flex; align-items: center; height: 36px; padding: 0 6px; gap: 0; border-radius: 999px; font-size: 13px; transform: none; }
+body.ui4 .lab .idx { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-style: normal; font-size: 10px; color: var(--ink); background: var(--cream); flex: none; box-shadow: 0 0 0 0 rgba(255, 248, 234, .6); animation: orb 2.6s ease-out infinite; }
+@keyframes orb { from { box-shadow: 0 0 0 0 rgba(255, 248, 234, .55); } to { box-shadow: 0 0 0 12px rgba(255, 248, 234, 0); } }
+body.ui4 .lab .nm, body.ui4 .lab .en { display: inline-block; max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0; transition: max-width .55s var(--spring), opacity .3s, margin .55s var(--spring); }
+body.ui4 .lab .en { text-decoration: none; font-size: 10px; color: var(--gold); }
+body.ui4 .lab.focus .nm, body.ui4 .lab.on .nm { max-width: 140px; opacity: 1; margin: 0 4px 0 10px; }
+body.ui4 .lab.on .en { max-width: 120px; opacity: 1; margin-right: 10px; }
+
+/* --- 5 · TICKER: a full-width glass strip names everything around you, in order; tags stand upright like signposts --- */
+body.ui5 #compass { left: 0; right: 0; bottom: 0; transform: none; width: auto; height: calc(58px + env(safe-area-inset-bottom)); border-radius: 0; overflow: hidden; }
+body.ui5.idle #compass.chrome, body.ui5.intro #compass.chrome { transform: translateY(12px); }
+body.ui5 #compass .mask { -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+body.ui5 #compass .tick { display: none; }
+body.ui5 #compass .num { display: none; }
+body.ui5 #compass .card-dir { top: 6px; font-size: 10px; color: rgba(255, 248, 234, .5); }
+body.ui5 #compass .card-dir.sub { display: block; color: rgba(255, 248, 234, .3); }
+body.ui5 #compass .cdot { bottom: auto; top: 22px; width: auto; height: auto; margin: 0; transform: translateX(-50%); background: none; box-shadow: none; border-radius: 0; }
+body.ui5 #compass .cdot span { display: block; font-size: 16px; font-weight: 600; white-space: nowrap; color: rgba(255, 248, 234, .78); transition: color .3s, transform .5s var(--spring); }
+body.ui5 #compass .cdot span::before { content: "✦"; font-size: 9px; color: var(--gold); margin-right: 8px; vertical-align: 3px; }
+body.ui5 #compass .cdot.on span, body.ui5 #compass .cdot.focus span { color: #fff; transform: scale(1.12); }
+body.ui5 #compass .cdot.on, body.ui5 #compass .cdot.focus { transform: translateX(-50%); }
+body.ui5 #compass .center { top: 0; bottom: auto; height: 6px; width: 30px; margin-left: -15px; border-radius: 0 0 6px 6px; background: var(--gold); }
+body.ui5 #dockToggle { bottom: calc(66px + env(safe-area-inset-bottom)) !important; }
+body.ui5 #hint { bottom: calc(70px + env(safe-area-inset-bottom)); }
+body.ui5 .badge { bottom: calc(60px + env(safe-area-inset-bottom)); }
+body.ui5 .lab { perspective: 600px; }
+body.ui5 .lab .tagx { writing-mode: vertical-rl; display: flex; align-items: center; gap: 8px; padding: 12px 7px; border-radius: 999px; font-size: 14px; font-weight: 600; transform: rotateY(var(--ry, 0deg)); transform-style: preserve-3d; }
+body.ui5 .lab.on .tagx { transform: rotateY(0deg) translateY(-4px); }
+body.ui5 .lab .idx { display: inline; font-style: normal; font-size: 10px; color: var(--gold); writing-mode: horizontal-tb; }
+body.ui5 .lab .en { display: inline; text-decoration: none; font-size: 9px; opacity: .6; }
+body.ui5 .lab .stem { height: 26px; }
+
 @media (max-width: 760px) {
+  body.ui1 #compass, body.ui3 #compass { width: calc(100vw - 92px); }
+  body.ui2 #compass, body.ui2.idle #compass.chrome { left: 50%; width: calc(100vw - 48px); transform: translateX(-50%); }
+  body.ui3 .lab .nm { font-size: 17px; }
   .shot { padding: 0; align-items: flex-end; justify-content: stretch; }
   .card { width: 100%; max-height: 66vh; border-radius: 26px 26px 0 0; }
   #dock { top: auto; bottom: calc(max(20px, env(safe-area-inset-bottom)) + 56px); left: 12px; right: 12px; width: auto; transform: translateY(12px) scale(.98); opacity: 0; pointer-events: none; transition: opacity .35s var(--ease), transform .5s var(--spring); }
@@ -273,7 +454,7 @@ body.intro #hero { opacity: 1; }
 <div id="island" class="glass" role="status" aria-live="polite"></div>
 
 <aside id="dock" class="glass chrome"><h4>IN THIS PLACE</h4><ol id="dockList"></ol></aside>
-<div id="compass" class="glass chrome"><div class="mask" id="compassMask"><div class="center"></div></div></div>
+<div id="compass" class="glass chrome"><div class="mask" id="compassMask"><div class="center"></div></div><div class="read" id="compassRead"></div></div>
 <button class="iconbtn glass chrome" id="dockToggle" style="position:fixed;right:12px;bottom:max(20px,env(safe-area-inset-bottom));z-index:9;width:46px;height:46px" aria-label="목록">≡</button>
 
 <div class="shot" id="shot">
@@ -334,6 +515,14 @@ const V = "?r=20261025-v7";
 const PLACE_NAME = { desert: "소문의 낙원", room: "방" };
 
 const $ = (s) => document.querySelector(s);
+// UI drafts: ?ui=1..5 swaps the labels, compass and glass styling; no param keeps the current look
+const UI = Math.max(0, Math.min(5, parseInt(new URLSearchParams(location.search).get("ui"), 10) || 0));
+document.body.classList.add("ui" + UI);
+if (UI) document.body.classList.add("draft");
+const DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"], DIRS_KO = ["북", "북동", "동", "남동", "남", "남서", "서", "북서"];
+const deg360 = (rad) => ((rad * 180 / Math.PI) % 360 + 360) % 360;
+const dirOf = (deg) => Math.round(deg / 45) % 8;
+const pad3 = (deg) => String(Math.round(deg) % 360).padStart(3, "0");
 const isTouch = matchMedia("(hover: none)").matches;
 const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
 if (isTouch) document.body.classList.add("touch");
@@ -655,11 +844,12 @@ function buildUi() {
   const labels = $("#labels"), list = $("#dockList"), comp = $("#compassMask");
   labels.innerHTML = ""; list.innerHTML = "";
   comp.querySelectorAll(".cdot,.tick,.card-dir").forEach((n) => n.remove());
-  for (const s of place.spots) {
+  place.spots.forEach((s, i) => {
     const c = CONTENT[place.name][s.key];
+    s.hdg = deg360(s.yaw - NORTH);
     const lab = document.createElement("div");
     lab.className = "lab";
-    lab.innerHTML = `<div class="tagx glass"><b>${c.note}</b>${c.label}</div><div class="stem"></div><div class="pip"></div>`;
+    lab.innerHTML = `<div class="tagx glass"><i class="idx">${String(i + 1).padStart(2, "0")}</i><b>${c.note}</b><span class="nm">${c.label}</span><u class="en">${c.tag || "ENTER"}</u><em class="deg">${DIRS[dirOf(s.hdg)]} ${pad3(s.hdg)}°</em></div><div class="stem"></div><div class="pip"></div><i class="fr"></i>`;
     lab.onmouseenter = () => setHover(s);
     lab.onmouseleave = () => setHover(null);
     lab.onclick = () => open(s, lab.firstChild.getBoundingClientRect());
@@ -669,44 +859,102 @@ function buildUi() {
     b.onmouseenter = () => setHover(s); b.onmouseleave = () => setHover(null);
     b.onclick = () => { $("#dock").classList.remove("open"); open(s, b.getBoundingClientRect()); };
     li.appendChild(b); list.appendChild(li); s.dockBtn = b;
-    const dot = document.createElement("div"); dot.className = "cdot"; dot.title = c.label;
+    const dot = document.createElement("div"); dot.className = "cdot"; dot.title = c.label; dot.innerHTML = `<span>${c.label}</span>`;
     dot.onclick = () => turnTo(s.dir, 60, 900);
     dot.onmouseenter = () => setHover(s); dot.onmouseleave = () => setHover(null);
     comp.appendChild(dot); s.cdot = dot;
-  }
+  });
   compassMarks = [];
   for (let deg = 0; deg < 360; deg += 15) {
     const t = document.createElement("div"); t.className = "tick" + (deg % 45 === 0 ? " big" : ""); comp.appendChild(t); compassMarks.push([deg, t]);
-    if (deg % 90 === 0) { const l = document.createElement("div"); l.className = "card-dir"; l.textContent = ["N", "E", "S", "W"][deg / 90]; comp.appendChild(l); compassMarks.push([deg, l]); }
+    const l = document.createElement("div");
+    // the current look only names N/E/S/W; drafts add NE.. and (strip compasses) degree numbers
+    if (deg % 90 === 0 || (UI && deg % 45 === 0)) { l.className = "card-dir" + (deg % 90 ? " sub" : ""); l.textContent = DIRS[deg / 45]; l.dataset.ko = DIRS_KO[deg / 45]; }
+    else if ((UI === 1 || UI === 2) && deg % 30 === 0) { l.className = "num"; l.textContent = pad3(deg); }
+    else continue;
+    comp.appendChild(l); compassMarks.push([deg, l]);
   }
+  readHtml = "";
 }
-let compassMarks = [];
-const SPAN = 200;   // degrees shown across the compass
+let compassMarks = [], readHtml = "";
+const SPAN = UI === 5 ? 240 : 200;   // degrees shown across the compass
+// compass marks: along a strip, or (radar draft) around a dial with "ahead" at the top
+function placeMark(el, d, cw, r) {
+  if (UI === 4) {
+    const a = d * Math.PI / 180, c = cw / 2;
+    el.style.display = "block";
+    el.style.left = (c + Math.sin(a) * r) + "px"; el.style.top = (c - Math.cos(a) * r) + "px";
+    if (el.classList.contains("tick")) el.style.transform = `rotate(${d}deg)`;
+    return;
+  }
+  el.style.display = Math.abs(d) > SPAN / 2 ? "none" : "block";
+  el.style.left = (cw / 2 + d / SPAN * cw) + "px";
+}
 function updateUi() {
   if (!place) return;
   const cw = $("#compass").clientWidth, heading = wrap(yaw - NORTH) * 180 / Math.PI;
   for (const [deg, el] of compassMarks) {
     const d = wrap((deg - heading) * Math.PI / 180) * 180 / Math.PI;
-    el.style.display = Math.abs(d) > SPAN / 2 ? "none" : "block";
-    el.style.left = (cw / 2 + d / SPAN * cw) + "px";
+    placeMark(el, d, cw, el.classList.contains("tick") ? cw / 2 - 8 : cw / 2 - 24);
   }
-  const tmp = new THREE.Vector3(), fwd = lookDir();
+  const tmp = new THREE.Vector3(), fwd = lookDir(), shown = [];
+  let focus = null, focusAng = 14;
   for (const s of place.spots) {
     const d = wrap(s.yaw - yaw) * 180 / Math.PI;
-    s.cdot.style.display = Math.abs(d) > SPAN / 2 ? "none" : "block";
-    s.cdot.style.left = (cw / 2 + d / SPAN * cw) + "px";
+    placeMark(s.cdot, d, cw, cw / 2 - 38);
     tmp.copy(s.dir).multiplyScalar(100).project(camera);
     const ang = Math.acos(THREE.MathUtils.clamp(s.dir.dot(fwd), -1, 1)) * 180 / Math.PI;
     const vis = tmp.z < 1 && Math.abs(tmp.x) < 0.95 && Math.abs(tmp.y) < 0.9 && !busy;
+    if (vis && ang < focusAng) { focus = s; focusAng = ang; }
     s.lab.style.display = vis ? "flex" : "none";
     if (vis) {
-      s.lab.style.left = (tmp.x + 1) / 2 * innerWidth + "px";
-      s.lab.style.top = ((1 - tmp.y) / 2 * innerHeight - 6) + "px";
-      s.lab.style.opacity = s === hovered ? 1 : THREE.MathUtils.clamp(1.25 - ang / 40, 0.25, 0.95);
+      const x = (tmp.x + 1) / 2 * innerWidth, y = (1 - tmp.y) / 2 * innerHeight;
+      s.lab.style.left = x + "px";
+      s.lab.style.top = (UI === 2 || UI === 3 || UI === 4 ? y : y - 6) + "px";
+      s.lab.style.opacity = s === hovered ? 1 : THREE.MathUtils.clamp(1.25 - ang / 40, UI === 3 ? 0.55 : 0.25, 0.95);
+      if (UI === 5) s.lab.style.setProperty("--ry", ((x / innerWidth - 0.5) * -50).toFixed(1) + "deg");
+      shown.push({ s, x, y });
     }
+  }
+  for (const s of place.spots) { const f = s === focus; s.lab.classList.toggle("focus", f); s.cdot.classList.toggle("focus", f); }
+  if (UI === 5) {
+    // the ticker reads in order, so neighbours that would overlap slide apart instead of stacking
+    const row = place.spots.filter((s) => s.cdot.style.display !== "none").sort((a, b) => parseFloat(a.cdot.style.left) - parseFloat(b.cdot.style.left));
+    let edge = -1e9;
+    for (const s of row) {
+      const w = s.cdot.offsetWidth, x = Math.max(parseFloat(s.cdot.style.left), edge + w / 2 + 28);
+      s.cdot.style.left = x + "px"; edge = x + w / 2;
+    }
+  }
+  if (UI === 3) leaderLines(shown);
+  if (UI) {
+    const h = (heading + 360) % 360, k = dirOf(h), near = focus || hovered;
+    const html = `<b>${pad3(h)}°</b><span>${DIRS[k]} · ${DIRS_KO[k]}</span><i>${DIRS_KO[k]}쪽</i>${near ? `<em>${UI === 3 ? " · " : ""}${CONTENT[place.name][near.key].label}</em>` : ""}`;
+    if (UI === 1 && html !== readHtml) $("#compassRead").innerHTML = `<i class="star">✦</i> ${DIRS[k]} ${pad3(h)}°${near ? `<em>${CONTENT[place.name][near.key].label}</em>` : ""}`;
+    else if (html !== readHtml) $("#compassRead").innerHTML = html;
+    readHtml = html;
   }
   // the glass sheen turns with the view, like light sliding across a lens
   document.documentElement.style.setProperty("--sheen", (110 + heading * 0.6).toFixed(1) + "deg");
+}
+// editorial draft: captions sit in the left/right margins, tied to their object by a hairline
+function leaderLines(shown) {
+  const edge = Math.min(96, innerWidth * 0.05) + 8, gap = innerWidth < 700 ? 46 : 58;
+  for (const side of ["l", "r"]) {
+    const items = shown.filter((o) => (o.x < innerWidth / 2) === (side === "l")).sort((a, b) => a.y - b.y);
+    let last = -1e9;
+    for (const o of items) {
+      const ty = Math.max(o.y, last + gap); last = ty;
+      const w = o.s.lab.firstChild.offsetWidth;
+      // caption hugs the screen edge; the hairline stops just short of it
+      const tx = side === "l" ? edge : innerWidth - edge, end = side === "l" ? edge + w + 10 : innerWidth - edge - w - 10;
+      const dx = end - o.x, dy = ty - o.y;
+      const st = o.s.lab.style;
+      o.s.lab.classList.toggle("r", side === "r");
+      st.setProperty("--tx", (tx - o.x) + "px"); st.setProperty("--ty", dy + "px"); st.setProperty("--ax", side === "l" ? "0" : "-100%");
+      st.setProperty("--w", Math.max(0, Math.hypot(dx, dy)) + "px"); st.setProperty("--a", Math.atan2(dy, dx) + "rad");
+    }
+  }
 }
 function placeThumb() {
   const on = $("nav.places button.on"), th = $("#thumb");

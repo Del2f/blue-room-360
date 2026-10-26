@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>소문의 낙원 — UI 시안</title>
+<meta name="robots" content="noindex, nofollow, noimageindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Special+Elite&display=swap">
+<style>
+  /* Side-by-side review page for the five UI drafts (?ui=1..5) of the 360 page. */
+  :root { --ink: #f3ead8; --soft: rgba(243, 234, 216, .6); --gold: #ffc832; --bg: #14100c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Special Elite", "Gowun Batang", serif; }
+  .glass { position: relative; background: rgba(0, 0, 0, .4); -webkit-backdrop-filter: saturate(120%) blur(14px); backdrop-filter: saturate(120%) blur(14px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .3), inset 0 1px rgba(255, 255, 255, .08), inset 0 0 0 1px rgba(255, 255, 255, .1); border-radius: 999px; }
+  .glass::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; background: linear-gradient(135deg, rgba(255, 255, 255, .4), rgba(255, 255, 255, 0) 35% 65%, rgba(255, 255, 255, .4));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#fff 0 0) content-box exclude, linear-gradient(#fff 0 0); }
+  header { max-width: 1240px; margin: 0 auto; padding: 48px 16px 8px; }
+  h1 { margin: 0; font-weight: 400; font-size: clamp(32px, 6vw, 56px); line-height: 1.05; }
+  header p { margin: 14px 0 0; font-family: "Gowun Batang", serif; font-size: 15px; line-height: 1.7; color: var(--soft); max-width: 760px; }
+  .xp { display: inline-flex; align-items: center; gap: 6px; padding: 11px 16px; font-size: 16px; margin-top: 18px; }
+  .xp i { color: var(--gold); font-style: normal; } .xp span { opacity: .6; }
+  section { max-width: 1240px; margin: 0 auto; padding: 36px 16px; border-top: 1px solid rgba(255, 255, 255, .1); display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 20px; }
+  .head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 18px; }
+  .head b { font-weight: 400; font-size: 13px; color: var(--gold); }
+  .head h2 { margin: 0; font-weight: 400; font-size: 28px; }
+  .head a { margin-left: auto; color: var(--ink); text-decoration: none; padding: 10px 16px; font-size: 13px; }
+  .desc { grid-column: 1 / -1; margin: 0; font-family: "Gowun Batang", serif; font-size: 15px; line-height: 1.75; color: var(--soft); max-width: 900px; }
+  .desc strong { color: var(--ink); font-weight: 700; }
+  .shots { display: grid; gap: 12px; }
+  figure { margin: 0; } img { display: block; width: 100%; height: auto; border-radius: 12px; }
+  figcaption { font-size: 11px; color: var(--soft); margin-top: 6px; letter-spacing: .06em; text-transform: uppercase; }
+  @media (max-width: 760px) { section { grid-template-columns: 1fr; } .mobile { max-width: 260px; } .head a { margin-left: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>UI Drafts · Paradise of Rumors 360</h1>
+  <p>why.zero.university의 "✦ 500 XP" 글래스를 다섯 시안 모두의 공통 재료로 썼습니다. 검정 40% 배경, 1px 흰 테두리, saturate(120%) blur(14px), 135° 방향 빛 테두리를 쓰고, 선택된 항목에는 금색 링이 켜집니다. 시안마다 바뀌는 것은 두 가지입니다. 동서남북 방향으로 콘텐츠를 알려주는 나침반과, 360° 화면 속 물체에 띄우는 텍스트입니다. 각 시안의 버튼을 누르면 실제 360° 화면에서 바로 볼 수 있습니다.</p>
+  <div class="xp glass"><i>✦</i>500<span>XP</span></div>
+</header>
+<main id="list"></main>
+<script>
+  const DRAFTS = [
+    ["ZERO RULER", "글래스 알약 + 눈금자 나침반",
+      "<strong>라벨</strong>은 XP 알약을 그대로 옮겼습니다. 금색 ✦, 한글 이름, 흐린 영문 태그(CONCERT, M/V…) 순서이고, 마우스를 올리면 금색 링이 켜집니다. <strong>나침반</strong>은 참고 사이트의 '-100 BZ' 눈금자처럼 바꿨습니다. 방위(N·NE…)와 각도(030·060…)가 새겨진 눈금 위에 콘텐츠 이름이 알약으로 떠 있고, 위쪽 알약에 '✦ NE 027° 무대'처럼 지금 보는 방향과 가운데 있는 콘텐츠가 나옵니다."],
+    ["VIEWFINDER", "카메라 뷰파인더 HUD",
+      "화면 네 모서리에 촬영용 크롭 마크, 가운데에 조준점이 있습니다. <strong>라벨</strong>은 배경 없이 '[01] CONCERT / 무대'처럼 떠 있고, 화면 가운데에 가까운 물체에는 초점 브래킷이 걸리며 방위·각도가 나타납니다. <strong>나침반</strong>은 화면 위쪽의 헤딩 테이프입니다. 콘텐츠 방향은 금색 ▼ 표시로, 현재 방위는 '027° NE · 북동' 글래스 알약으로 보여 줍니다."],
+    ["EDITORIAL", "잡지식 캡션 + 리더 라인",
+      "<strong>라벨</strong>을 물체에서 떼어 화면 좌우 여백에 잡지 캡션처럼 배치하고, 가는 선으로 물체와 잇습니다. 고운바탕 큰 글자에 번호와 영문 태그를 곁들였습니다. 물체가 장면을 가리지 않는 것이 장점입니다. <strong>나침반</strong>은 '북 · 북동 · 동' 한글 방위와 점으로만 이루어진 미니멀한 선이고, 위에 '북동쪽 · 무대'라는 문장이 나옵니다. 왼쪽 목록은 이 시안에서 숨겼습니다."],
+    ["RADAR", "원형 레이더 다이얼",
+      "<strong>나침반</strong>을 왼쪽 아래의 둥근 글래스 다이얼로 바꿨습니다. 내가 가운데에 서 있고 시야 부채꼴이 항상 위를 향하며, 둘러보면 낙원 전체가 내 주위로 돕니다. 콘텐츠는 점으로, 북쪽은 주황으로 표시하고, 옆에 '027° / NE · 북동 / 무대'가 나옵니다. <strong>라벨</strong>은 번호만 있는 작은 원(오브)이고, 가운데로 오거나 마우스를 올리면 이름과 영문 태그가 펼쳐집니다."],
+    ["TICKER", "전광판 나침반 + 세로 이정표",
+      "<strong>나침반</strong>은 화면 아래 전체 폭의 글래스 띠입니다. 지금 보는 방향 순서대로 '✦ 레코드 가판대 ✦ 언덕 위의 문 ✦ 무대 ✦ 옷걸이…'가 전광판처럼 흐르고, 가운데 온 항목이 밝아집니다. 이름이 겹치면 서로 비켜섭니다. <strong>라벨</strong>은 세로쓰기 글래스 기둥으로, 이정표처럼 서 있고 화면 가장자리로 갈수록 살짝 비스듬히 돌아 장면 속에 박힌 느낌을 줍니다."],
+  ];
+  document.getElementById("list").innerHTML = DRAFTS.map(([en, ko, desc], i) => {
+    const n = i + 1;
+    return `<section>
+      <div class="head"><b>DRAFT 0${n}</b><h2>${en}</h2><span style="font-family:'Gowun Batang',serif;color:var(--soft)">${ko}</span><a class="glass" href="../?ui=${n}">✦ 360 화면에서 보기</a></div>
+      <p class="desc">${desc}</p>
+      <div class="shots"><figure><img src="ui${n}_d.jpg" alt="" loading="lazy"><figcaption>Desktop</figcaption></figure><figure><img src="ui${n}_hover.jpg" alt="" loading="lazy"><figcaption>Hover</figcaption></figure></div>
+      <figure class="mobile"><img src="ui${n}_m.jpg" alt="" loading="lazy"><figcaption>Mobile</figcaption></figure>
+    </section>`;
+  }).join("");
+</script>
+</body>
+</html>
