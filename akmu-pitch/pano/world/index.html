@@ -644,7 +644,7 @@ const CONTENT = {
     photos: { label: "액자", note: "사진", tag: "PHOTOS", title: "벽에 걸린 장면들", sub: "공연과 뮤직비디오의 순간", html: polaroids() },
     poster: { label: "포스터", note: "공연", tag: "CONCERT", title: "소문의 낙원", sub: "벽에 붙여 둔 공연 포스터", html: `<img class="tilt" src="${REF}concert_02.png" alt="" style="width:100%;display:block;margin-bottom:14px;border-radius:12px">${concert}` },
     records: { label: "LP 상자", note: "디스코그래피", tag: "DISCOGRAPHY", title: "레코드 상자", sub: "지금까지의 앨범들", html: `<ul><li>개화 (FLOWERING)<small>LATEST</small></li><li>앨범 제목<small>YYYY</small></li><li>앨범 제목<small>YYYY</small></li></ul>${PH("디스코그래피 데이터")}` },
-    desk: { label: "책상", note: "가사 노트", tag: "NOTES", title: "가사 노트", sub: "창가 책상 위에 펼쳐 둔 노트", html: `<p class="type" style="white-space:pre-line;background:#fbf6ea;padding:16px;border-radius:14px">소문의 낙원 —\n\n(가사 영역)</p>${PH("가사·작업 노트")}` },
+    desk: { label: "책상", note: "가사 노트", tag: "NOTES", title: "가사 노트", sub: "창가 책상 위에 펼쳐 둔 노트와 체스판", html: `<p class="type" style="white-space:pre-line;background:#fbf6ea;padding:16px;border-radius:14px">소문의 낙원 —\n\n(가사 영역)</p><div class="btns"><button class="btn fill" id="playChess">창가의 체스 두기</button></div>${PH("가사·작업 노트")}` },
     ukulele: { label: "우쿨렐레", note: "비하인드", tag: "BEHIND", title: "비하인드", sub: "작업실에서 생긴 일들", html: `<ul><li>비하인드 영상 제목<small>VIDEO</small></li><li>크레딧<small>CREDIT</small></li></ul>${PH("비하인드 콘텐츠")}` },
     bed: { label: "침대", note: "밤의 노래", tag: "GOOD NIGHT", title: "잠들기 전에", sub: "불을 끄고 듣는 노래", html: `<ol><li>트랙 이름<small>01</small></li><li>트랙 이름<small>02</small></li><li>트랙 이름<small>03</small></li></ol>${PH("밤 플레이리스트")}` },
     clock: { label: "괘종시계", note: "타임라인", tag: "TIMELINE", title: "AKMU의 시간", sub: "시계가 기억하는 순간들", html: `<ul><li>YYYY<small>사건 제목</small></li><li>YYYY<small>사건 제목</small></li><li>YYYY<small>사건 제목</small></li></ul>${PH("연대기 데이터")}` },
@@ -652,7 +652,7 @@ const CONTENT = {
   },
 };
 // bump when the renders change, so browsers fetch the new images instead of cached ones
-const V = "?r=20261025-v7";
+const V = "?r=20261027-chess";
 const PLACE_NAME = { desert: "소문의 낙원", room: "방" };
 
 const $ = (s) => document.querySelector(s);
@@ -1158,6 +1158,7 @@ async function closeShot() {
   if (!shot.classList.contains("on") || shot.classList.contains("closing")) return;
   const card = $("#card");
   card.querySelectorAll("iframe").forEach((f) => (f.src = "about:blank"));
+  endChess();
   shot.classList.add("closing");
   card.classList.remove("ready");
   canvas.classList.remove("dim");
@@ -1231,8 +1232,28 @@ function tiltable(root) {
     el.onpointerleave = () => { el.classList.remove("live"); el.style.transform = base; };
   });
 }
+// the chess set on the desk: the card turns into a board you play against the room's owner
+let chessGame = null;
+function endChess() {
+  if (chessGame) { chessGame.destroy(); chessGame = null; }
+  $("#card").classList.remove("chessing");
+}
+async function startChess() {
+  const card = $("#card");
+  const { mountChess } = await import("./chess.js" + V);
+  card.classList.add("chessing");
+  card.innerHTML = `<div class="tag">CHESS</div><h2>${words("창가의 체스")}</h2><p class="sub">당신은 흰 말, 방의 주인은 검은 말. 말을 누르고 갈 칸을 누르세요.</p><div id="chessRoot"></div>`;
+  chessGame = mountChess($("#chessRoot"), { tag: V, blip, onLeave: () => {
+    endChess();
+    const c = CONTENT.room.desk;
+    card.innerHTML = `<div class="tag">${c.tag}</div><h2>${words(c.title)}</h2><p class="sub">${c.sub}</p>${c.html}`;
+    wireCard();
+  } });
+}
 function wireCard() {
   wireDeck();
+  const pc = $("#playChess");
+  if (pc) pc.onclick = () => { blip(520, 0.08, 0.04); startChess(); };
   tiltable($("#card"));
   const sl = $("#sendLetter");
   if (sl) sl.onclick = () => {
