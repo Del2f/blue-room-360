@@ -1,6 +1,6 @@
-# Blue Room 360 / 소문의 낙원 360
+# 소문의 낙원 360
 
-인터랙티브 360° 아티스트 사이트 실험 저장소입니다. 지금 중심 작업은 AKMU 「소문의 낙원」(Paradise of Rumors) 콘셉트 시안이며, 처음 만든 하늘색 방 프로토타입(Blue Room)도 그대로 남아 있습니다.
+AKMU 「소문의 낙원」(Paradise of Rumors) 360° 인터랙티브 콘셉트 시안 저장소입니다.
 
 > 이 저장소는 공개 상태이고, 시안 사이트에는 권리 검토가 끝나지 않은 AKMU 공식 이미지가 들어 있습니다. 외부 공유 전 아래 [권리와 크레딧](#권리와-크레딧)을 확인하세요.
 
@@ -90,7 +90,7 @@ http://localhost:8766/akmu-pitch/pano/world/ 를 엽니다.
 
 | 폴더 | 내용 |
 |---|---|
-| `index.html` (루트) | 첫 프로토타입 Blue Room: 하늘색 방 360°, 툰 셰이딩(three.js r128, GSAP 3). 콘텐츠는 `DATA` 객체 |
+| `index.html` (루트) | 사이트(`akmu-pitch/pano/world/`)로 바로 넘기는 안내 페이지. 공유 미리보기와 `noindex` 포함 |
 | `akmu-concept/` | 소문의 낙원 초기 콘셉트 시안 (v1, v2) |
 
 ## 다음 후보
