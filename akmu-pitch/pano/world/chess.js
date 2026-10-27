@@ -9,31 +9,6 @@ const LEVELS = [
 ];
 const KEY = "akmu-room-chess-v1";
 const OWNER = "방의 주인";
-// what the paradise whispers when you take a piece (in-world tales, not news)
-const RUMORS = [
-  "호수 건너편에선 노래가 한 박자 늦게 들린대요.",
-  "무대 뒤 사구는 밤마다 손톱만큼 자란대요.",
-  "황금빛 덤불은 박수 소리가 나면 꽃을 더 피운대요.",
-  "언덕 위의 문은 노래를 흥얼거려야 열린대요.",
-  "호수 위 배에는 아직 아무도 읽지 않은 편지가 한 통 남아 있대요.",
-  "풍력발전기는 바람이 아니라 노래로 돈대요.",
-  "피크닉 카세트의 B면은 아무도 끝까지 못 들었대요.",
-  "괘종시계는 이 방에서만 거꾸로 간대요.",
-  "TV 탑은 보는 사람마다 다른 장면을 보여 준대요.",
-  "레코드 가판대의 마지막 한 장은 팔지 않는 거래요.",
-  "낙원에선 소문이 사실이 되기까지 사흘이 걸린대요.",
-  "방의 주인은 체스에서 한 번도 진 적이 없대요.",
-];
-const SAYS = {
-  hello: ["오늘은 흰 말을 양보할게요.", "천천히 두세요. 여긴 시간이 느리게 가요."],
-  take: ["이건 제가 가져갈게요.", "아, 미안해요.", "소문보다 제 말이 빠르네요."],
-  check: ["체크. 왕을 조심하세요.", "왕이 좀 외로워 보이네요."],
-  checked: ["음… 생각보다 날카롭네요.", "그 수는 소문에 없던 건데요."],
-  lose: ["졌네요. 약속대로 하나 알려 드릴게요.", "소문이 하나 틀렸네요. 제가 졌어요."],
-  win: ["한 판 더 할래요?", "다음엔 흰 말도 양보 안 할지 몰라요."],
-  draw: ["비긴 걸로 해 두죠.", "오늘은 여기까지 하죠."],
-};
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const LETTER = ["", "p", "n", "b", "r", "q", "k"];
 
 const css = `
@@ -63,11 +38,6 @@ const css = `
 .chess .cb-lv button { font-size: 12.5px; padding: 7px 12px; color: var(--soft); }
 .chess .cb-lv button.on { background: var(--ink); color: var(--paper); }
 .chess .cb-ctl .btn { padding: 8px 14px; font-size: 12.5px; }
-.chess .cb-note { position: absolute; left: 50%; top: 14%; z-index: 4; width: min(86%, 320px); padding: 12px 16px 13px; background: #fbf4e2; color: var(--ink);
-  border-radius: 4px; box-shadow: 0 16px 30px -12px rgba(0, 0, 0, .6), 0 0 0 1px rgba(60, 40, 20, .08); font-family: var(--font-ko), serif; font-size: 15px; line-height: 1.55;
-  opacity: 0; transform: translate(-50%, 10px) rotate(-1.5deg); transition: opacity .4s, transform .5s cubic-bezier(.2, .85, .25, 1); pointer-events: none; }
-.chess .cb-note.on { opacity: 1; transform: translate(-50%, 0) rotate(-1.5deg); }
-.chess .cb-note small { display: block; font-family: var(--font-type); font-size: 10.5px; letter-spacing: .12em; color: var(--rust); margin-bottom: 4px; }
 .chess .cb-reward { display: none; margin-top: 14px; padding: 14px 16px; border-radius: 14px; background: var(--ink); color: var(--paper); }
 .chess .cb-reward.on { display: block; }
 .chess .cb-reward small { display: block; font-family: var(--font-type); font-size: 10.5px; letter-spacing: .14em; color: var(--gold); margin-bottom: 6px; }
@@ -97,7 +67,7 @@ export function mountChess(root, { base = "chess/", tag = "", blip = () => {}, o
 
   root.innerHTML = `<div class="chess">
     <div class="cb-who"><span><b>${OWNER}</b>검은 말</span><span class="cb-caps" data-side="b"></span></div>
-    <div class="cb-board" style="background-image:url(${base}board.jpg${tag})"><div class="cb-promo"><div></div></div><div class="cb-note"><small></small><span></span></div></div>
+    <div class="cb-board" style="background-image:url(${base}board.jpg${tag})"><div class="cb-promo"><div></div></div></div>
     <div class="cb-who"><span><b>나</b>흰 말</span><span class="cb-caps" data-side="w"></span></div>
     <p class="cb-status"></p>
     <div class="cb-reward"><small>A RUMOR, FOR THE WINNER</small><p>방의 주인이 쪽지를 건넸어요. "축음기 뒤에, 아직 아무도 듣지 못한 노래가 한 곡 있대요."</p>
@@ -107,25 +77,8 @@ export function mountChess(root, { base = "chess/", tag = "", blip = () => {}, o
       <div class="btns" style="margin:0"><button class="btn" data-act="undo">무르기</button><button class="btn" data-act="new">새 판</button></div>
     </div></div>`;
   const box = root.querySelector(".chess"), boardEl = box.querySelector(".cb-board"), statusEl = box.querySelector(".cb-status");
-  const promoEl = box.querySelector(".cb-promo"), noteEl = box.querySelector(".cb-note"), rewardEl = box.querySelector(".cb-reward");
-  let noteTimer = 0, rumorAt = 0, tickTimer = 0;
-  try { rumorAt = +localStorage.getItem(KEY + "-rumor") || 0; } catch (e) { rumorAt = 0; }
-  // a paper note over the board: a rumor of the paradise, or a word from the room's owner
-  function note(label, text, ms = 3800) {
-    noteEl.querySelector("small").textContent = label;
-    noteEl.querySelector("span").textContent = text;
-    noteEl.classList.add("on");
-    clearTimeout(noteTimer);
-    noteTimer = setTimeout(() => noteEl.classList.remove("on"), ms);
-  }
-  const says = (k) => note(OWNER, pick(SAYS[k]));
-  function rumor() {
-    const text = RUMORS[rumorAt % RUMORS.length];
-    rumorAt++;
-    try { localStorage.setItem(KEY + "-rumor", rumorAt); } catch (e) { /* not kept */ }
-    note("소문 · RUMOR", text, 4600);
-    blip(990, 0.06, 0.025);
-  }
+  const promoEl = box.querySelector(".cb-promo"), rewardEl = box.querySelector(".cb-reward");
+  let tickTimer = 0;
   const size = () => {
     // the whole card (title, board, controls) fits the screen without scrolling: about 330 px of it is not board
     const room = innerWidth <= 760 ? innerHeight * 0.86 - 320 : innerHeight - 96 - 330;
@@ -225,11 +178,8 @@ export function mountChess(root, { base = "chess/", tag = "", blip = () => {}, o
     const end = draw();
     if (end) {
       blip(end.result === "1-0" ? 880 : 330, 0.4, 0.05);
-      says(end.result === "1-0" ? "lose" : end.result === "0-1" ? "win" : "draw");
       return;
     }
-    if (m.captured) { if (byOwner) says("take"); else rumor(); }
-    else if (inCheck(game.s)) says(byOwner ? "check" : "checked");
     if (!byOwner && game.s.turn === BLACK) think();
   }
 
@@ -279,10 +229,9 @@ export function mountChess(root, { base = "chess/", tag = "", blip = () => {}, o
 
   load();
   draw();
-  if (!moves.length) setTimeout(() => alive && says("hello"), 700);
   if (game.s.turn === BLACK && !outcome(game.s, game.keys)) think();   // a saved game left on the owner's move
 
   return {
-    destroy() { alive = false; worker.terminate(); clearInterval(tickTimer); clearTimeout(noteTimer); removeEventListener("resize", size); },
+    destroy() { alive = false; worker.terminate(); clearInterval(tickTimer); removeEventListener("resize", size); },
   };
 }
