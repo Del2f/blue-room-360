@@ -1503,7 +1503,7 @@ DESK = tag(spawn("wooden_table_02", R, loc=(WIN["x"], RD / 2 - 0.45, 0))[0], "de
 desk_top = LIBM["wooden_table_02"]["mx"].z - LIBM["wooden_table_02"]["mn"].z
 spawn("vintage_oil_lamp", R, loc=(WIN["x"] - 0.4, RD / 2 - 0.38, desk_top), rz=0.3)
 light(R, "POINT", "oil_lamp", 14, (1.0, 0.68, 0.38), (WIN["x"] - 0.4, RD / 2 - 0.38, desk_top + 0.42), size=0.04)
-spawn("chess_set", R, loc=(WIN["x"] + 0.28, RD / 2 - 0.55, desk_top), rz=0.25)
+CHESS = tag(spawn("chess_set", R, loc=(WIN["x"] + 0.28, RD / 2 - 0.55, desk_top), rz=0.25)[0], "chess")   # playable on the site
 spawn("book_encyclopedia_set_01", R, loc=(WIN["x"] - 0.05, RD / 2 - 0.3, desk_top), rz=0.0)
 UKE = tag(spawn("Ukulele_01", R, loc=(-RW / 2 + 0.22, -1.75, 0), rz=-math.pi / 2)[0], "ukulele")
 spawn("potted_plant_02", R, loc=(1.6, RD / 2 - 0.35, 0), rz=0.4)
@@ -1617,6 +1617,7 @@ for (bx, by, bz, sx_, sy_) in ((0, -0.22, 0.17, 0.42, 0.02), (0, 0.22, 0.17, 0.4
     mesh_obj("crate", bm_box(sx_, sy_, bz * 2 if bz > 0.02 else 0.02), M_WALNUT, R, lpc, loc=(bx, by, bz))
 sleeves(R, lpc, 8, COVER, loc=(0, -0.17, 0.02))
 ROOM_HOT["records"] = lpc
+ROOM_HOT["chess"] = CHESS
 # lyric notes on the desk
 paper = tag(empty("notes", R, loc=(WIN["x"] - 0.22, RD / 2 - 0.66, desk_top + 0.002), rz=0.25), "desk")
 mesh_obj("paper", bm_box(0.21, 0.297, 0.002), flat("paper", (0.95, 0.93, 0.88), rough=0.9), R, paper)
@@ -1826,7 +1827,7 @@ def hot_group(o):
     return None
 
 
-def closeup_cam(scene, name, root, from_pos, lens=35, margin=1.35, room=False):
+def closeup_cam(scene, name, root, from_pos, lens=35, margin=1.35, room=False, lift=0.35):
     scene.view_layers[0].update()
     objs = [o for o in scene.objects if hot_group(o) == root["hot"]] if "hot" in root.keys() else [root] + list(root.children_recursive)
     pts = [o.matrix_world @ Vector(c) for o in objs if o.type in ("MESH", "FONT") for c in o.bound_box]
@@ -1838,7 +1839,7 @@ def closeup_cam(scene, name, root, from_pos, lens=35, margin=1.35, room=False):
     d.z = 0
     d.normalize()
     dist = size * margin / math.tan(math.atan(18 / lens))
-    pos = c + d * dist + Vector((0, 0, size * 0.35))
+    pos = c + d * dist + Vector((0, 0, size * lift))
     if room:
         pos.x = max(min(pos.x, RW / 2 - 0.2), -RW / 2 + 0.2)
         pos.y = max(min(pos.y, RD / 2 - 0.2), -RD / 2 + 0.2)
@@ -1852,7 +1853,8 @@ def srgb(v):
     return round(255 * (12.92 * v if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055))
 
 
-ID_COLS = [(1, 0.2, 0), (0, 1, 0.2), (0.2, 0, 1), (1, 1, 0), (0, 1, 1), (1, 0, 1), (1, 0.2, 1), (0.2, 1, 1), (1, 1, 0.2), (0.2, 0.2, 1)]
+ID_COLS = [(1, 0.2, 0), (0, 1, 0.2), (0.2, 0, 1), (1, 1, 0), (0, 1, 1), (1, 0, 1), (1, 0.2, 1), (0.2, 1, 1), (1, 1, 0.2), (0.2, 0.2, 1),
+           (0.6, 0.6, 0)]
 
 
 def render_mask(scene, camob, path, groups):
@@ -2033,7 +2035,8 @@ if ARGS.get("--world"):
     PANO_W = int(ARGS.get("--pano", 6144))
     shots = [("R0", R, R0)]
     for k, root in ROOM_HOT.items():
-        shots.append(("R_" + k, R, closeup_cam(R, "R_" + k, root, R0.location, lens=32, room=True)))
+        # the chess set sits low behind the desk chair: look down on it from above the backrest
+        shots.append(("R_" + k, R, closeup_cam(R, "R_" + k, root, R0.location, lens=32, room=True, lift=2.2 if k == "chess" else 0.35)))
     shots.append(("D0", P, D0))
     # the TV tower stands between the viewpoint and the merch rack, so that close-up is framed from a little further south
     CLOSE_FROM = {"merch": Vector((7.0, -2.0, D0.location.z))}
