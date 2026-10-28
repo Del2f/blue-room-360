@@ -1708,6 +1708,245 @@ if ARGS.get("--save"):
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(WORK, "pitch.blend"))
 want = ARGS.get("--frames")
 
+# ================================================================== NIGHT (--time night)
+NIGHT = ARGS.get("--time") == "night"
+MOON_DIR = Vector((math.cos(math.radians(28)) * math.cos(math.radians(70)), math.cos(math.radians(28)) * math.sin(math.radians(70)), math.sin(math.radians(28))))
+
+
+def night_world(name, hdr_path, strength, rot=0.0):
+    """Moonlit sky: the photographed sky, dimmed, greyed and tinted blue, lights the scene; camera rays
+    see a deep blue gradient with stars and a small moon instead."""
+    w = bpy.data.worlds.new(name)
+    w.use_nodes = True
+    nt = w.node_tree
+    nt.nodes.clear()
+    out = node(nt, "ShaderNodeOutputWorld")
+    tc = node(nt, "ShaderNodeTexCoord")
+    mp = node(nt, "ShaderNodeMapping")
+    mp.inputs["Rotation"].default_value = (0, 0, rot)
+    env = node(nt, "ShaderNodeTexEnvironment")
+    env.image = load_img(hdr_path)
+    nt.links.new(tc.outputs["Generated"], mp.inputs["Vector"])
+    nt.links.new(mp.outputs["Vector"], env.inputs["Vector"])
+    hs = node(nt, "ShaderNodeHueSaturation")
+    hs.inputs["Saturation"].default_value = 0.25
+    nt.links.new(env.outputs["Color"], hs.inputs["Color"])
+    mx, ta, tb, tout = mix_rgb(nt, "MULTIPLY")
+    nt.links.new(hs.outputs["Color"], ta)
+    tb.default_value = (0.45, 0.6, 1.0, 1)
+    bg = node(nt, "ShaderNodeBackground")
+    nt.links.new(tout, bg.inputs["Color"])
+    bg.inputs["Strength"].default_value = strength
+    # what the camera sees: horizon glow fading to a deep zenith
+    sep = node(nt, "ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["Generated"], sep.inputs[0])
+    ramp = node(nt, "ShaderNodeValToRGB")
+    nt.links.new(sep.outputs["Z"], ramp.inputs["Fac"])
+    cr = ramp.color_ramp
+    cr.elements[0].position, cr.elements[0].color = 0.0, (0.05, 0.07, 0.13, 1)
+    cr.elements[1].position, cr.elements[1].color = 0.55, (0.006, 0.011, 0.032, 1)
+    cr.elements.new(0.12).color = (0.022, 0.034, 0.075, 1)
+    # stars: a few random Voronoi cells, each lit only at its very centre, none below the horizon
+    vo = node(nt, "ShaderNodeTexVoronoi")
+    vo.inputs["Scale"].default_value = 260
+    nt.links.new(tc.outputs["Generated"], vo.inputs["Vector"])
+    pick = node(nt, "ShaderNodeSeparateColor")
+    nt.links.new(vo.outputs["Color"], pick.inputs["Color"])
+    bright = node(nt, "ShaderNodeMapRange", clamp=True)
+    nt.links.new(pick.outputs[0], bright.inputs["Value"])
+    bright.inputs["From Min"].default_value, bright.inputs["From Max"].default_value = 0.955, 1.0
+    bright.inputs["To Max"].default_value = 4.0
+    core = node(nt, "ShaderNodeMapRange", clamp=True)
+    nt.links.new(vo.outputs["Distance"], core.inputs["Value"])
+    core.inputs["From Min"].default_value, core.inputs["From Max"].default_value = 0.0, 0.22
+    core.inputs["To Min"].default_value, core.inputs["To Max"].default_value = 1.0, 0.0
+    above = node(nt, "ShaderNodeMapRange", clamp=True)
+    nt.links.new(sep.outputs["Z"], above.inputs["Value"])
+    above.inputs["From Min"].default_value, above.inputs["From Max"].default_value = 0.02, 0.15
+    s1 = node(nt, "ShaderNodeMath", operation="MULTIPLY")
+    nt.links.new(bright.outputs["Result"], s1.inputs[0])
+    nt.links.new(core.outputs["Result"], s1.inputs[1])
+    s2 = node(nt, "ShaderNodeMath", operation="MULTIPLY")
+    nt.links.new(s1.outputs[0], s2.inputs[0])
+    nt.links.new(above.outputs["Result"], s2.inputs[1])
+    # the moon: a small bright disc with a soft halo, where the moonlight comes from
+    dot = node(nt, "ShaderNodeVectorMath", operation="DOT_PRODUCT")
+    nt.links.new(tc.outputs["Generated"], dot.inputs[0])
+    dot.inputs[1].default_value = tuple(MOON_DIR)
+    disc = node(nt, "ShaderNodeMapRange", clamp=True, interpolation_type="SMOOTHSTEP")
+    nt.links.new(dot.outputs["Value"], disc.inputs["Value"])
+    disc.inputs["From Min"].default_value, disc.inputs["From Max"].default_value = 0.99984, 0.99988
+    disc.inputs["To Max"].default_value = 6.0
+    halo = node(nt, "ShaderNodeMapRange", clamp=True)
+    nt.links.new(dot.outputs["Value"], halo.inputs["Value"])
+    halo.inputs["From Min"].default_value, halo.inputs["From Max"].default_value = 0.985, 1.0
+    halo.inputs["To Max"].default_value = 0.12
+    hp = node(nt, "ShaderNodeMath", operation="POWER")
+    nt.links.new(halo.outputs["Result"], hp.inputs[0])
+    hp.inputs[1].default_value = 3.0
+    lit = node(nt, "ShaderNodeMath", operation="ADD")
+    nt.links.new(s2.outputs[0], lit.inputs[0])
+    nt.links.new(disc.outputs["Result"], lit.inputs[1])
+    lit2 = node(nt, "ShaderNodeMath", operation="ADD")
+    nt.links.new(lit.outputs[0], lit2.inputs[0])
+    nt.links.new(hp.outputs[0], lit2.inputs[1])
+    add = node(nt, "ShaderNodeVectorMath", operation="ADD")
+    nt.links.new(ramp.outputs["Color"], add.inputs[0])
+    tint = node(nt, "ShaderNodeVectorMath", operation="SCALE")
+    tint.inputs[0].default_value = (0.9, 0.94, 1.0)
+    nt.links.new(lit2.outputs[0], tint.inputs["Scale"])
+    nt.links.new(tint.outputs["Vector"], add.inputs[1])
+    bgc = node(nt, "ShaderNodeBackground")
+    nt.links.new(add.outputs["Vector"], bgc.inputs["Color"])
+    lp = node(nt, "ShaderNodeLightPath")
+    ms = node(nt, "ShaderNodeMixShader")
+    nt.links.new(lp.outputs["Is Camera Ray"], ms.inputs[0])
+    nt.links.new(bg.outputs[0], ms.inputs[1])
+    nt.links.new(bgc.outputs[0], ms.inputs[2])
+    nt.links.new(ms.outputs[0], out.inputs["Surface"])
+    return w
+
+
+def set_sky(scene):
+    """Day sky and sun, or the night sky and the moon, for the paradise (the room keeps its own world)."""
+    if NIGHT:
+        P.world = W_NIGHT
+        SUN_P.rotation_euler = MOON_DIR.to_track_quat("Z", "Y").to_euler()
+    else:
+        P.world = W_DAY
+        SUN_P.rotation_euler = Vector(W_DAY["sun_dir"]).to_track_quat("Z", "Y").to_euler()
+
+
+def bulb(scene, parent, loc, energy, r=0.045, col=(1.0, 0.7, 0.36)):
+    """A glowing bulb the camera sees, and a small point light that does the actual lighting."""
+    camera_only(mesh_obj("bulb", bm_sphere(r, 12, 6), M_NBULB, scene, parent, loc=loc, smooth_shade=True))
+    light(scene, "POINT", "bulbl", energy, col, loc, size=r, parent=parent)
+
+
+def bulb_string(scene, a, b, n, sag, energy):
+    a, b = Vector(a), Vector(b)
+    for i in range(n):
+        t = (i + 0.5) / n
+        p = a.lerp(b, t)
+        p.z -= sag * 4 * t * (1 - t)
+        bulb(scene, None, tuple(p), energy)
+
+
+if NIGHT:
+    W_NIGHT = night_world("night", os.path.join(ASSETS, "h", SKY), 0.035)
+    SUN_P.data.energy, SUN_P.data.color, SUN_P.data.angle = 0.32, (0.62, 0.72, 1.0), math.radians(0.5)
+    P.view_settings.exposure = float(LAYOUT.get("exposure", -0.3)) + float(ARGS.get("--night-ev", 1.6))
+    M_NBULB = flat("night_bulb", (1, 0.9, 0.7), emit=(1.0, 0.68, 0.32), estr=30)
+    # festoon of bulbs across the stage front and out to the teepee and the merch rack
+    sm = stage.matrix_world
+    pl, pr = sm @ Vector((-X2, FY - 0.03, 0.5 + 4.25)), sm @ Vector((X2, FY - 0.03, 0.5 + 4.25))
+    bulb_string(P, pl, pr, 14, 0.55, 3.0)
+    bulb_string(P, pr, (13.5, 19.5, gz(13.5, 19.5) + 3.3), 10, 0.8, 3.0)
+    bulb_string(P, pl, (-3.4 + 7, -1.3 + 17, gz(3.6, 15.7) + 4.0), 6, 0.4, 3.0)
+    bulb_string(P, (7.5, 7.5, gz(7.5, 7.5) + 2.2), (11, 10, gz(11, 10) + 2.1), 8, 0.35, 2.5)
+    # a lantern in front of each tent, on the side facing the viewpoint
+    for tx, ty in ((12.0, 24.0), (16.5, 27.0), (20.5, 28.5), (25.0, 24.0), (8.5, 28.5), (13.5, 19.5)):
+        d = (Vector((C360[0], C360[1])) - Vector((tx, ty))).normalized() * 2.1
+        lx, ly = tx + d.x, ty + d.y
+        mesh_obj("lantern_post", bm_cyl(0.02, 0.02, 1.1, 8), M_POST, P, None, loc=(lx, ly, gz(lx, ly) + 0.55))
+        bulb(P, None, (lx, ly, gz(lx, ly) + 1.18), 18, r=0.07)
+    # campfire beside the picnic: a ring of stones, crossed logs, flames and embers
+    FX, FY_ = 5.2, -4.8
+    fz = gz(FX, FY_)
+    fire = empty("campfire", P, loc=(FX, FY_, fz))
+    rngf = np.random.default_rng(11)
+    M_STONE = flat("fire_stone", (0.09, 0.085, 0.08), rough=0.9)
+    for k in range(10):
+        a_ = k / 10 * TAU + rngf.uniform(-0.1, 0.1)
+        st_ = mesh_obj("stone", bm_sphere(0.12, 12, 6), M_STONE, P, fire, loc=(0.5 * math.cos(a_), 0.5 * math.sin(a_), 0.03), rot=(0, 0, a_), smooth_shade=True)
+        st_.scale = (rngf.uniform(1.0, 1.4), rngf.uniform(0.7, 0.95), rngf.uniform(0.4, 0.55))
+    # charred logs leaning into a cone; only their tips glow, as embers
+    M_LOG, nt, b = new_mat("fire_log")
+    setin(b, "Base Color", (0.07, 0.045, 0.03, 1))
+    setin(b, "Roughness", 0.9)
+    tcl, sepl = node(nt, "ShaderNodeTexCoord"), node(nt, "ShaderNodeSeparateXYZ")
+    nt.links.new(tcl.outputs["Generated"], sepl.inputs[0])
+    tip = node(nt, "ShaderNodeMapRange", clamp=True)
+    nt.links.new(sepl.outputs["Z"], tip.inputs["Value"])
+    tip.inputs["From Min"].default_value, tip.inputs["From Max"].default_value = 0.82, 1.0
+    tip.inputs["To Max"].default_value = 0.5
+    setin(b, "Emission Color", (1.0, 0.4, 0.05, 1))
+    nt.links.new(tip.outputs["Result"], b.inputs["Emission Strength"])
+    for k in range(5):
+        a_ = k / 5 * TAU + 0.3
+        mesh_obj("log", bm_cyl(0.05, 0.04, 0.62, 10), M_LOG, P, fire, loc=(0.24 * math.cos(a_), 0.24 * math.sin(a_), 0.12),
+                 rot=(0.0, -math.radians(64), a_), smooth_shade=True)
+    # glowing ember bed in the middle
+    M_EMBER = flat("ember", (0.05, 0.02, 0.01), rough=0.8, emit=(1.0, 0.42, 0.06), estr=1.0)
+    for k in range(14):
+        r_, a_ = 0.16 * math.sqrt(rngf.uniform()), rngf.uniform(0, TAU)
+        mesh_obj("ember", bm_sphere(rngf.uniform(0.015, 0.028), 8, 4), M_EMBER, P, fire, loc=(r_ * math.cos(a_), r_ * math.sin(a_), 0.02), smooth_shade=True)
+
+    def flame_mat(name, bottom, top, strength):
+        """Emission that runs from a hot base to a deep red tip and thins out to nothing at the top and edges."""
+        m, nt, _ = new_mat(name)
+        nt.nodes.remove(nt.nodes["Principled BSDF"])
+        tc, sp = node(nt, "ShaderNodeTexCoord"), node(nt, "ShaderNodeSeparateXYZ")
+        nt.links.new(tc.outputs["Generated"], sp.inputs[0])
+        ramp = node(nt, "ShaderNodeValToRGB")
+        nt.links.new(sp.outputs["Z"], ramp.inputs["Fac"])
+        ramp.color_ramp.elements[0].color, ramp.color_ramp.elements[1].color = (*bottom, 1), (*top, 1)
+        ramp.color_ramp.elements[1].position = 0.85
+        em = node(nt, "ShaderNodeEmission")
+        nt.links.new(ramp.outputs["Color"], em.inputs["Color"])
+        em.inputs["Strength"].default_value = strength
+        fade = node(nt, "ShaderNodeMapRange", clamp=True, interpolation_type="SMOOTHSTEP")
+        nt.links.new(sp.outputs["Z"], fade.inputs["Value"])
+        fade.inputs["From Min"].default_value, fade.inputs["From Max"].default_value = 0.08, 0.85
+        fade.inputs["To Min"].default_value, fade.inputs["To Max"].default_value = 1.0, 0.0
+        lw = node(nt, "ShaderNodeLayerWeight")
+        lw.inputs["Blend"].default_value = 0.55
+        edge = node(nt, "ShaderNodeMath", operation="SUBTRACT")
+        edge.inputs[0].default_value = 1.0
+        nt.links.new(lw.outputs["Facing"], edge.inputs[1])
+        alpha = node(nt, "ShaderNodeMath", operation="MULTIPLY", use_clamp=True)
+        nt.links.new(fade.outputs["Result"], alpha.inputs[0])
+        nt.links.new(edge.outputs[0], alpha.inputs[1])
+        mix = node(nt, "ShaderNodeMixShader")
+        nt.links.new(alpha.outputs[0], mix.inputs[0])
+        nt.links.new(node(nt, "ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
+        nt.links.new(em.outputs[0], mix.inputs[2])
+        nt.links.new(mix.outputs[0], nt.nodes["Material Output"].inputs["Surface"])
+        return m
+
+    M_FLAME = flame_mat("flame", (1.0, 0.62, 0.14), (1.0, 0.24, 0.02), 0.8)
+    M_FLAME2 = flame_mat("flame_core", (1.0, 0.8, 0.4), (1.0, 0.5, 0.08), 1.1)
+    # licking tongues: thin, twisted, leaning a little, of different heights around a short bright core;
+    # spread apart, since every layer a ray passes through adds its glow
+    for k in range(6):
+        a_ = k / 6 * TAU + rngf.uniform(-0.3, 0.3)
+        r_ = 0.0 if k == 0 else rngf.uniform(0.08, 0.15)
+        h_ = (0.95 if k == 0 else rngf.uniform(0.5, 0.8))
+        ph = rngf.uniform(0, TAU)
+        prof = [(0.0, 0.0), (0.09, 0.06), (0.085, 0.22), (0.055, 0.5), (0.02, 0.82), (0.0, 1.0)]
+        fl_ = mesh_obj("flame", bm_lathe(prof, seg=14, wobble=lambda a, z, ph=ph: 0.35 * math.sin(3 * a + ph + 9 * z) * z), M_FLAME, P, fire,
+                       loc=(r_ * math.cos(a_), r_ * math.sin(a_), 0.06), rot=(rngf.uniform(-0.18, 0.18), rngf.uniform(-0.18, 0.18), ph), smooth_shade=True)
+        fl_.scale = (1.0, 1.0, h_)
+        camera_only(fl_)
+    for k in range(1):
+        a_ = 0.0
+        fl_ = mesh_obj("flame", bm_lathe([(0.0, 0.0), (0.12, 0.08), (0.08, 0.45), (0.0, 1.0)], seg=12), M_FLAME2, P, fire,
+                       loc=(0.0, 0.0, 0.04), rot=(0, 0, a_), smooth_shade=True)
+        fl_.scale = (1.0, 1.0, 0.4)
+        camera_only(fl_)
+    light(P, "POINT", "fire_l", 22, (1.0, 0.66, 0.3), (FX, FY_, fz + 0.3), size=0.15)
+    light(P, "POINT", "fire_low", 5, (1.0, 0.55, 0.2), (FX, FY_, fz + 0.1), size=0.15)
+
+    # room: the outside goes dark and blue, the lamps carry the room
+    R.world = night_world("room_night", os.path.join(ASSETS, "h", "rustig_koppie_puresky_8k.hdr"), 0.03)
+    SUN_R.data.energy, SUN_R.data.color = 0.22, (0.62, 0.72, 1.0)
+    SUN_R.rotation_euler = Vector((MOON_DIR.x, MOON_DIR.y, 0.6)).normalized().to_track_quat("Z", "Y").to_euler()
+    R.view_settings.exposure = 0.85 + float(ARGS.get("--room-ev", -0.6))
+    for o in R.objects:
+        if o.type == "LIGHT" and o.data.type == "POINT":
+            o.data.energy *= 1.3
+    print("NIGHT on")
+
 
 def box_blur(a, r):
     for ax in (0, 1):
@@ -1745,7 +1984,8 @@ def film_post(path, pano=False):
     # MV-like haze: warm veil, lifted blacks, a little less saturation
     l2 = (a @ np.array([0.2126, 0.7152, 0.0722], np.float32))[..., None]
     a = l2 + (a - l2) * 0.94
-    a = a * 0.9 + np.array([0.1, 0.095, 0.08], np.float32)
+    # at night only a faint blue lift, or the dark turns to grey
+    a = a * 0.96 + np.array([0.01, 0.013, 0.024], np.float32) if NIGHT else a * 0.9 + np.array([0.1, 0.095, 0.08], np.float32)
     if not pano:
         a *= (1 - 0.18 * r2 ** 1.4)[..., None]
     grain = np.random.default_rng(5).normal(0, 1, (h, w, 1)).astype(np.float32)
@@ -1762,10 +2002,9 @@ def film_post(path, pano=False):
 
 def render_window_plate():
     """Linear EXR of the dunes from the paradise scene, shown through the room window at true brightness."""
-    path = os.path.join(WORK, "renders", "_window_plate.exr")
+    path = os.path.join(WORK, "renders", "_window_plate_night.exr" if NIGHT else "_window_plate.exr")
     if not os.path.exists(path):
-        P.world = W_DAY
-        SUN_P.rotation_euler = Vector(W_DAY["sun_dir"]).to_track_quat("Z", "Y").to_euler()
+        set_sky(P)
         # from the meadow north-west of the stage, level, toward the golden bushes and the big dune. The window
         # shows only part of the 40 x 22.5 m plane behind it: seen from R0, eye level falls 68% up the plate and
         # straight ahead 61% across, so the lens is shifted to put the horizon there
@@ -2042,9 +2281,11 @@ if ARGS.get("--world"):
     CLOSE_FROM = {"merch": Vector((7.0, -2.0, D0.location.z))}
     for k, root in DESERT_HOT.items():
         shots.append(("D_" + k, P, closeup_cam(P, "D_" + k, root, CLOSE_FROM.get(k, D0.location), lens=35 if k != "stage" else 28)))
+    if NIGHT:
+        # a look at the campfire from the viewpoint side, only rendered when asked for (--views D_fire)
+        shots.append(("D_fire", P, cam(P, "D_fire", (FX - 1.6, FY_ + 2.4, fz + 1.5), (FX, FY_, fz + 0.3), 45)))
     render_window_plate()
-    P.world = W_DAY
-    SUN_P.rotation_euler = Vector(W_DAY["sun_dir"]).to_track_quat("Z", "Y").to_euler()
+    set_sky(P)
     for name, scene, camob in shots:
         if only and name not in only.split(","):
             continue
