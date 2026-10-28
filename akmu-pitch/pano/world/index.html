@@ -634,6 +634,7 @@ body.intro4 #hero p span { margin: 0 .3em; }
   <div class="tools">
     <nav class="places glass"><span class="thumb" id="thumb"></span><button id="nDesert" class="on">낙원</button><button id="nRoom">방</button></nav>
     <button class="iconbtn glass mag" id="bSound" title="소리" aria-label="소리">♪</button>
+    <button class="iconbtn glass mag" id="bNight" title="밤으로" aria-label="밤으로">☾</button>
     <button class="iconbtn glass mag" id="bGyro" title="기울여 보기" aria-label="기울여 보기" hidden>◎</button>
     <button class="iconbtn glass mag" id="bFull" title="전체 화면" aria-label="전체 화면">⤢</button>
   </div>
@@ -844,9 +845,12 @@ const loadImg = (src) => new Promise((res, rej) => { const i = new Image(); i.on
 
 let ids = {};
 const places = {};
+// night panoramas share the day masks/depth (same cameras); ?time=night opens straight into night
+let night = new URLSearchParams(location.search).get("time") === "night", entered = false;
+const panoSrc = (key, full) => `${key}${night ? "_night" : ""}${full ? "" : "_3k"}.webp${V}`;
 async function buildPlace(name, key) {
   // 3K first so the page opens fast; the full-size version replaces it in the background on desktops
-  const [tex, maskTex, maskImg, depthTex] = await Promise.all([loadTex(`${key}_3k.webp${V}`, true), loadTex(`${key}_mask.png${V}`, false), loadImg(`${key}_mask.png${V}`), loadTex(`${key}_depth.png${V}`, false)]);
+  const [tex, maskTex, maskImg, depthTex] = await Promise.all([loadTex(panoSrc(key, false), true), loadTex(`${key}_mask.png${V}`, false), loadImg(`${key}_mask.png${V}`), loadTex(`${key}_depth.png${V}`, false)]);
   const w = maskImg.width, h = maskImg.height;
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const cx = c.getContext("2d", { willReadFrequently: true }); cx.drawImage(maskImg, 0, 0);
@@ -888,8 +892,27 @@ async function buildPlace(name, key) {
   places[name] = { name, key, mesh, mat, px, w, h, groups, spots, dust, yaw: 0, pitch: -0.05 };
 }
 function upgradeTextures() {
+  entered = true;
   if (!big) return;
-  for (const p of Object.values(places)) loadTex(`${p.key}.webp${V}`, true).then((t) => { const old = p.mat.uniforms.map.value; p.mat.uniforms.map.value = t; old.dispose(); });
+  const n = night;
+  for (const p of Object.values(places)) loadTex(panoSrc(p.key, true), true).then((t) => { if (night !== n) return t.dispose(); const old = p.mat.uniforms.map.value; p.mat.uniforms.map.value = t; old.dispose(); });
+}
+
+async function setNight(on) {
+  night = on;
+  document.body.classList.toggle("night", on);
+  $("#bNight").textContent = on ? "☀" : "☾";
+  $("#bNight").title = $("#bNight").ariaLabel = on ? "낮으로" : "밤으로";
+  const ps = Object.values(places);
+  const texs = await Promise.all(ps.map((p) => loadTex(panoSrc(p.key, false), true)));
+  if (night !== on) { texs.forEach((t) => t.dispose()); return; }
+  // dip to dark, swap, come back up
+  const t0 = performance.now();
+  await new Promise((res) => { const f = () => { const k = Math.min(1, (performance.now() - t0) / 350); ps.forEach((p) => p.mat.uniforms.fade.value = 1 - k * 0.85); k < 1 ? requestAnimationFrame(f) : res(); }; f(); });
+  ps.forEach((p, i) => { const old = p.mat.uniforms.map.value; p.mat.uniforms.map.value = texs[i]; old.dispose(); });
+  const t1 = performance.now();
+  const g = () => { const k = Math.min(1, (performance.now() - t1) / 600); ps.forEach((p) => p.mat.uniforms.fade.value = 0.15 + k * 0.85); if (k < 1) requestAnimationFrame(g); }; g();
+  if (entered) upgradeTextures();
 }
 
 function makeDust(room) {
@@ -1385,6 +1408,7 @@ const goPlace = async (name) => { if (busy && !$("#shot").classList.contains("on
 $("#nDesert").onclick = () => goPlace("desert");
 $("#nRoom").onclick = () => goPlace("room");
 $("#bSound").onclick = () => setSound(!sound.on);
+$("#bNight").onclick = () => setNight(!night);
 $("#bGyro").onclick = toggleGyro;
 $("#bFull").onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
 $("#dockToggle").onclick = () => $("#dock").classList.toggle("open");
@@ -1604,6 +1628,7 @@ renderer.setAnimationLoop(() => {
   await buildPlace("room", "R0");
   setLoad(100);
   places.desert.yaw = places.room.yaw = NORTH;
+  if (night) { document.body.classList.add("night"); $("#bNight").textContent = "☀"; $("#bNight").title = $("#bNight").ariaLabel = "낮으로"; }
   show("desert");
   yaw = NORTH - 0.5; pitch = 1.05; fov = fovTarget = 96;
   $("#enter").classList.add("on");
