@@ -58,7 +58,7 @@ export function mountChess(root, { base = "chess/", tag = "", blip = () => {}, o
     st.id = "chess-css"; st.textContent = css;
     document.head.appendChild(st);
   }
-  const img = (code) => `${base}${code}.png${tag}`;
+  const img = (code) => `${base}${code}.webp${tag}`;
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { saved = {}; }
   let moves = Array.isArray(saved.moves) ? saved.moves : [];
@@ -67,7 +67,7 @@ export function mountChess(root, { base = "chess/", tag = "", blip = () => {}, o
 
   root.innerHTML = `<div class="chess">
     <div class="cb-who"><span><b>${OWNER}</b>검은 말</span><span class="cb-caps" data-side="b"></span></div>
-    <div class="cb-board" style="background-image:url(${base}board.jpg${tag})"><div class="cb-promo"><div></div></div></div>
+    <div class="cb-board" style="background-image:url(${base}board.webp${tag})"><div class="cb-promo"><div></div></div></div>
     <div class="cb-who"><span><b>나</b>흰 말</span><span class="cb-caps" data-side="w"></span></div>
     <p class="cb-status"></p>
     <div class="cb-reward"><small>A RUMOR, FOR THE WINNER</small><p>방의 주인이 쪽지를 건넸어요. "축음기 뒤에, 아직 아무도 듣지 못한 노래가 한 곡 있대요."</p>

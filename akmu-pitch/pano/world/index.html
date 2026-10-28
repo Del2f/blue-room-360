@@ -655,7 +655,7 @@ const CONTENT = {
   },
 };
 // bump when the renders change, so browsers fetch the new images instead of cached ones
-const V = "?r=20261027-chess3";
+const V = "?r=20261028-webp";
 const PLACE_NAME = { desert: "소문의 낙원", room: "방" };
 
 const $ = (s) => document.querySelector(s);
@@ -792,7 +792,7 @@ let ids = {};
 const places = {};
 async function buildPlace(name, key) {
   // 3K first so the page opens fast; the full-size version replaces it in the background on desktops
-  const [tex, maskTex, maskImg, depthTex] = await Promise.all([loadTex(`${key}_3k.jpg${V}`, true), loadTex(`${key}_mask.png${V}`, false), loadImg(`${key}_mask.png${V}`), loadTex(`${key}_depth.png${V}`, false)]);
+  const [tex, maskTex, maskImg, depthTex] = await Promise.all([loadTex(`${key}_3k.webp${V}`, true), loadTex(`${key}_mask.png${V}`, false), loadImg(`${key}_mask.png${V}`), loadTex(`${key}_depth.png${V}`, false)]);
   const w = maskImg.width, h = maskImg.height;
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const cx = c.getContext("2d", { willReadFrequently: true }); cx.drawImage(maskImg, 0, 0);
@@ -835,7 +835,7 @@ async function buildPlace(name, key) {
 }
 function upgradeTextures() {
   if (!big) return;
-  for (const p of Object.values(places)) loadTex(`${p.key}.jpg${V}`, true).then((t) => { const old = p.mat.uniforms.map.value; p.mat.uniforms.map.value = t; old.dispose(); });
+  for (const p of Object.values(places)) loadTex(`${p.key}.webp${V}`, true).then((t) => { const old = p.mat.uniforms.map.value; p.mat.uniforms.map.value = t; old.dispose(); });
 }
 
 function makeDust(room) {
@@ -919,6 +919,9 @@ canvas.addEventListener("pointerup", (e) => {
   drag = null; if (pointers.size < 2) pinch = null;
 });
 canvas.addEventListener("pointerleave", () => setHover(null));
+// someone moving the pointer or touching anywhere (labels, list, compass) is looking: hold the idle turn
+addEventListener("pointermove", () => { lastInput = performance.now(); }, { passive: true });
+addEventListener("pointerdown", () => { lastInput = performance.now(); }, { passive: true });
 canvas.addEventListener("wheel", (e) => {
   e.preventDefault();
   if (document.body.classList.contains("intro")) return;
@@ -934,18 +937,32 @@ addEventListener("keydown", (e) => {
 // phone tilt: look around by moving the phone (iOS asks for permission on the first tap)
 addEventListener("deviceorientation", (e) => {
   if (!gyro.on || e.alpha == null) return;
-  if (gyro.a === null) { gyro.a0 = e.alpha; gyro.b0 = e.beta; gyro.y0 = yaw; gyro.p0 = pitch; }
-  gyro.a = e.alpha; gyro.b = e.beta;
+  // held sideways, tipping the phone up and down is gamma rather than beta
+  const turn = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+  const tip = (e2) => (turn === 90 ? -e2.gamma : turn === -90 || turn === 270 ? e2.gamma : e2.beta);
+  if (gyro.a === null || gyro.turn !== turn) { gyro.a0 = e.alpha; gyro.b0 = tip(e); gyro.y0 = yaw; gyro.p0 = pitch; gyro.turn = turn; }
+  gyro.a = e.alpha; gyro.b = tip(e);
   yaw = gyro.y0 - THREE.MathUtils.degToRad(wrap(THREE.MathUtils.degToRad(e.alpha - gyro.a0)) * 180 / Math.PI);
-  pitch = THREE.MathUtils.clamp(gyro.p0 + THREE.MathUtils.degToRad(e.beta - gyro.b0) * 0.8, -1.3, 1.3);
+  pitch = THREE.MathUtils.clamp(gyro.p0 + THREE.MathUtils.degToRad(gyro.b - gyro.b0) * 0.8, -1.3, 1.3);
   lastInput = performance.now();
 });
+// a short line in the hint spot at the bottom (the status pill is hidden in the default look)
+function flashHint(text, ms = 2600) {
+  const h = $("#hint");
+  h.textContent = text;
+  h.style.opacity = 1;
+  clearTimeout(flashHint.t);
+  flashHint.t = setTimeout(() => (h.style.opacity = 0), ms);
+}
 async function toggleGyro() {
   if (!gyro.on && typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission) {
-    try { if ((await DeviceOrientationEvent.requestPermission()) !== "granted") return; } catch { return; }
+    let ok = false;
+    try { ok = (await DeviceOrientationEvent.requestPermission()) === "granted"; } catch { ok = false; }
+    if (!ok) { flashHint("기울여 보려면 동작 및 방향 접근을 허용해 주세요", 3600); return; }
   }
   gyro.on = !gyro.on; gyro.a = null;
   $("#bGyro").classList.toggle("off", !gyro.on);
+  flashHint(gyro.on ? "휴대폰을 움직여 둘러보세요" : "기울여 보기를 껐어요");
 }
 
 // pointer -> panorama pixel -> object
@@ -1136,7 +1153,7 @@ async function open(s, fromRect) {
   turnTo(s.dir, 46, 850);
   canvas.classList.add("dim");
   document.body.classList.add("carded");
-  $("#shotImg").src = (place.name === "desert" ? "D_" : "R_") + s.key + ".jpg" + V;
+  $("#shotImg").src = (place.name === "desert" ? "D_" : "R_") + s.key + ".webp" + V;
   const card = $("#card");
   card.classList.remove("ready");
   card.innerHTML = `<div class="tag">${c.tag}</div><h2>${words(c.title)}</h2><p class="sub">${c.sub}</p>${c.html}`;
@@ -1271,7 +1288,8 @@ $("#bSound").onclick = () => setSound(!sound.on);
 $("#bGyro").onclick = toggleGyro;
 $("#bFull").onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
 $("#dockToggle").onclick = () => $("#dock").classList.toggle("open");
-if (isTouch) $("#bGyro").hidden = false;
+if (isTouch) { $("#bGyro").hidden = false; $("#bGyro").classList.add("off"); }   // dimmed until switched on
+if (!document.documentElement.requestFullscreen) $("#bFull").hidden = true;
 
 // ---------------------------------------------------------------- pointer, magnetic buttons, idle chrome
 const cur = $("#cur");
@@ -1454,7 +1472,7 @@ renderer.setAnimationLoop(() => {
       vel.yaw *= 0.93; vel.pitch *= 0.88;
       const lim = THREE.MathUtils.clamp(pitch, -PITCH_LIM, PITCH_LIM);
       pitch += (lim - pitch) * 0.18;
-      if (!busy && !gyro.on && performance.now() - lastInput > 9000) yaw += 0.0006;
+      if (!busy && !gyro.on && !hovered && performance.now() - lastInput > 9000) yaw += 0.0006;
     }
     fov += (fovTarget - fov) * 0.14;
   }
@@ -1499,7 +1517,7 @@ renderer.setAnimationLoop(() => {
   };
   $("#goSound").onclick = () => enter(true);
   $("#goQuiet").onclick = () => enter(false);
-  for (const [vn, items] of Object.entries(CONTENT)) for (const key of Object.keys(items)) if (!items[key].enter) new Image().src = (vn === "desert" ? "D_" : "R_") + key + ".jpg" + V;
+  for (const [vn, items] of Object.entries(CONTENT)) for (const key of Object.keys(items)) if (!items[key].enter) new Image().src = (vn === "desert" ? "D_" : "R_") + key + ".webp" + V;
   window.__pano = { introTo: (p) => { intro.target = intro.p = p; intro.lastInput = performance.now() + 1e9; }, places, open, travel, get place() { return place?.name; }, aim: (u, v) => { const d = uvDir(u, v); yaw = Math.atan2(d.z, d.x); pitch = Math.asin(d.y); }, uvDir, setHover, closeShot, skipIntro: () => { intro.target = intro.p = 1; } };
 })();
 </script>

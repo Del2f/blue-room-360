@@ -50,13 +50,15 @@ MV와 무이네(Mũi Né) 사진을 바탕으로 Blender로 만든 360° 장면 
 | `index.html` | 사이트 전체. 콘텐츠는 `CONTENT` 객체, 이미지 캐시 태그는 `const V` |
 | `ko-fonts.js` | `?ko=` 한글 폰트 목록 |
 | `chess.js`, `chess-engine.js`, `chess-worker.js` | 체스 화면, 규칙과 컴퓨터 상대(외부 라이브러리 없음, 생각은 Web Worker에서), 표준 perft 검증 통과 |
-| `chess/` | 체스판과 말 이미지. 방의 체스 세트(Poly Haven `chess_set`)를 Blender로 렌더 (`blender/chess_sprites.py`, 아직 커밋 전) |
-| `D0.jpg`, `R0.jpg` | 낙원·방 360 파노라마 4096×2048 (데스크톱) |
-| `D0_3k.jpg`, `R0_3k.jpg` | 3072×1536 경량본 (먼저 로드, 모바일) |
+| `chess/` | 체스판과 말 이미지. 방의 체스 세트(Poly Haven `chess_set`)를 Blender로 렌더 (`pitch/akmu-paradise-moodboard` 브랜치의 `blender/chess_sprites.py`) |
+| `D0.webp`, `R0.webp` | 낙원·방 360 파노라마 4096×2048 (데스크톱) |
+| `D0_3k.webp`, `R0_3k.webp` | 3072×1536 경량본 (먼저 로드, 모바일) |
 | `D0_mask.png`, `R0_mask.png`, `ids.json` | 클릭 영역 색 마스크와 색 ↔ 물건 표 |
 | `D0_depth.png`, `R0_depth.png` | 16비트 깊이 맵 (풀 흔들림 등 효과용) |
-| `D_*.jpg`, `R_*.jpg` | 물건별 클로즈업 1920×1080 (낙원 8, 방 9) |
-| `og.jpg` | 공유 미리보기 1200×630 |
+| `D_*.webp`, `R_*.webp` | 물건별 클로즈업 1920×1080 (낙원 8, 방 10) |
+| `og.jpg` | 공유 미리보기 1200×630 (메신저 호환을 위해 JPEG 유지) |
+
+사진 이미지는 모두 WebP입니다(같은 화질에서 JPEG의 약 1/3 크기). 클릭 마스크와 깊이 맵은 색과 값이 정확해야 해서 PNG로 둡니다.
 | `ui-drafts/`, `intro-drafts/`, `fonts.html` | 시안 비교 페이지 |
 
 공식 참고 이미지는 `akmu-pitch/refs/official/`에서 읽습니다.
