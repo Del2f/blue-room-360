@@ -70,7 +70,7 @@ export function mountChess(root, { base = "chess/", tag = "", blip = () => {}, o
     <div class="cb-board" style="background-image:url(${base}board.webp${tag})"><div class="cb-promo"><div></div></div></div>
     <div class="cb-who"><span><b>나</b>흰 말</span><span class="cb-caps" data-side="w"></span></div>
     <p class="cb-status"></p>
-    <div class="cb-reward"><small>A RUMOR, FOR THE WINNER</small><p>방의 주인이 쪽지를 건넸어요. "축음기 뒤에, 아직 아무도 듣지 못한 노래가 한 곡 있대요."</p>
+    <div class="cb-reward"><small>이긴 사람에게만</small><p>방의 주인이 쪽지를 건넸어요. "축음기 뒤에, 아직 아무도 듣지 못한 노래가 한 곡 있대요."</p>
       <div class="ph">자리 표시 — 미공개 트랙·다음 공연 힌트 (시안에는 음원 없음)</div><button class="btn" data-act="gramophone">축음기로 가 보기 →</button></div>
     <div class="cb-ctl">
       <div class="cb-lv">${LEVELS.map((l, i) => `<button data-lv="${i}">${l.name}</button>`).join("")}</div>

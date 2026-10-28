@@ -269,14 +269,55 @@ body.ui7 #compass .read::before { display: none; }
 body.ui7 #compass .read b { font-size: 18px; }
 body.ui7 #compass .read span { font-size: 10px; opacity: .75; }
 
+/* --- 8 · as 7, but a tag is only a gold star until you look its way, and cards read like a folded letter --- */
+body.ui8.lab1 .lab .tagx { padding: 7px 9px; gap: 0; }
+body.ui8.lab1 .lab .idx { display: inline; font-size: 0; }
+body.ui8.lab1 .lab .idx::before { content: "✦"; font-size: 13px; color: #ffc832; font-style: normal; }
+body.ui8.lab1 .lab .nm::before { content: none; }
+body.ui8.lab1 .lab .nm, body.ui8.lab1 .lab .en { max-width: 0; overflow: hidden; opacity: 0; transition: max-width .55s var(--spring), opacity .3s, margin .55s var(--spring); }
+body.ui8 .lab.focus .nm, body.ui8 .lab.on .nm { max-width: 180px; opacity: 1; margin-left: 7px; }
+body.ui8 .lab.focus .en, body.ui8 .lab.on .en { max-width: 220px; opacity: 1; margin-left: 8px; }
+body.ui8 .lab.focus .en { transition-delay: .35s; }
+body.ui8.lab1 .lab .stem { opacity: .6; }
+body.ui8 .card { border-radius: 4px; padding: 30px 28px 26px;
+  background-color: #f3ead8;
+  background-image: linear-gradient(180deg, transparent calc(50% - 1px), rgba(110, 78, 44, .13) 50%, rgba(255, 255, 255, .4) calc(50% + 1px), transparent calc(50% + 3px)),
+    radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(150, 110, 60, .16)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .25 0 0 0 0 .15 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
+  background-size: auto, auto, 160px 160px; box-shadow: 0 28px 60px -22px rgba(0, 0, 0, .6), 0 1px 2px rgba(60, 40, 20, .2); }
+body.ui8 .card .pm { position: absolute; top: 18px; right: 18px; width: 84px; height: 84px; border-radius: 50%; border: 1.5px solid rgba(170, 72, 40, .5); color: rgba(170, 72, 40, .62); transform: rotate(-13deg);
+  display: grid; place-content: center; text-align: center; font: 700 9.5px/1.35 var(--font-ko), serif; pointer-events: none; }
+body.ui8 .card.ready > .pm { transform: rotate(-13deg); }
+body.ui8 .card .pm b { font: 400 11.5px/1.5 "Special Elite", monospace; letter-spacing: .02em; border-top: 1px solid rgba(170, 72, 40, .42); border-bottom: 1px solid rgba(170, 72, 40, .42); margin: 3px -12px; }
+body.ui8 .card .pm::after { content: ""; position: absolute; left: -50px; top: 28px; width: 56px; height: 28px; background: repeating-linear-gradient(180deg, rgba(170, 72, 40, .45) 0 1.5px, transparent 1.5px 7px);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 40%); mask: linear-gradient(90deg, transparent, #000 40%); }
+#where { display: none; }
+body.ui8 #compass { display: none; }
+body.ui8 #where { display: flex; position: fixed; left: 50%; top: calc(max(16px, env(safe-area-inset-top)) + 2px); transform: translateX(-50%); z-index: 9; width: min(640px, 64vw); justify-content: space-between; align-items: flex-start;
+  color: rgba(255, 248, 234, .92); text-shadow: 0 1px 12px rgba(0, 0, 0, .5); pointer-events: none; font-family: var(--font-ko), serif; }
+body.ui8 #where .c { text-align: center; }
+body.ui8 #where .c b { display: block; font-size: 20px; font-weight: 700; }
+body.ui8 #where .c span { font-size: 12px; opacity: .8; }
+body.ui8 #where .l, body.ui8 #where .r { flex: 1; font-size: 12.5px; opacity: .65; padding-top: 6px; }
+body.ui8 #where .r { text-align: right; }
+body.ui8 #where.swap .c { animation: swapIn .6s var(--ease); }
+@keyframes swapIn { from { opacity: 0; transform: translateY(4px); filter: blur(4px); } }
+.lab .tap { display: none; }
+body.ui8.touch .lab.on .tap { display: block; position: absolute; top: 100%; margin-top: 8px; left: 50%; transform: translateX(-50%); white-space: nowrap; font: 12px/1 var(--font-ko), serif; padding: 7px 10px; border-radius: 10px; }
+body.ui8 .card h2 { font-family: var(--font-ko), serif; font-weight: 700; letter-spacing: -.02em; padding-right: 72px; }
+body.ui8 .card .sub { font-family: var(--font-ko), serif; padding-right: 72px; }
+body.ui8 .card li { border-bottom-color: rgba(110, 78, 44, .16); }
+body.ui8 .card .ph { border: 0; padding: 0; font: italic 13px/1.6 var(--font-ko), serif; }
+body.ui8 .card .ph::before { content: "— "; }
+
 /* --- 1 · ZERO RULER: why.zero's smoked pills + its measuring-ruler HUD as the compass ---------------------- */
 body.lab1 .lab .tagx { display: flex; align-items: center; gap: 6px; padding: 9px 14px; font-size: 15px; }
 body.lab1 .lab .tagx::after { inset: -2px; }
 body.lab1 .lab .nm::before { content: "✦"; color: #ffc832; font-size: 13px; margin-right: 6px; }
 body.lab1 .lab .nm { font-weight: 600; }
-body.lab1 .lab .en { display: inline-block; text-decoration: none; font-size: 11px; opacity: .6; }
+body.lab1 .lab .en { display: inline-block; text-decoration: none; font: 400 12.5px/1 var(--font-ko), serif; letter-spacing: 0; text-transform: none; color: rgba(255, 236, 205, .82); margin-left: 2px; }
 body.lab1 .lab.on .tagx { transform: translateY(-2px) scale(1.04); }
-body.lab1 .lab .stem { height: 22px; }
+body.lab1 .lab .stem { height: calc(var(--rise, 22px) + var(--push, 0px)); transition: height .3s var(--ease); }
 body.dir1 #compass { width: min(760px, 84vw); height: 58px; border-radius: 0; overflow: visible; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
 body.dir1 #compass::before { display: none; }
 body.dir1 #compass .mask { -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
@@ -424,6 +465,10 @@ body.ui5 .lab .stem { height: 26px; }
   body.ui3 .lab .nm { font-size: 17px; }
   .shot { padding: 0; align-items: flex-end; justify-content: stretch; }
   .card { width: 100%; max-height: 66vh; border-radius: 26px 26px 0 0; }
+  body.ui8 .card { border-radius: 6px 6px 0 0; }
+  body.ui8 #where { top: calc(max(16px, env(safe-area-inset-top)) + 46px); width: calc(100vw - 32px); }
+  body.ui8 #where .l, body.ui8 #where .r { display: none; }
+  body.ui8 #where .c { flex: 1; }
   #dock { top: auto; bottom: calc(max(20px, env(safe-area-inset-bottom)) + 56px); left: 12px; right: 12px; width: auto; transform: translateY(12px) scale(.98); opacity: 0; pointer-events: none; transition: opacity .35s var(--ease), transform .5s var(--spring); }
   #dock.open { opacity: 1; transform: none; pointer-events: auto; }
   #dockToggle { display: grid; }
@@ -581,7 +626,7 @@ body.intro4 #hero p span { margin: 0 .3em; }
 
 <div id="hero">
   <div><h1 id="heroTitle">소문의 낙원</h1><p id="heroSub"></p></div>
-  <div class="cue"><i></i>SCROLL</div>
+  <div class="cue"><i></i>아래로</div>
 </div>
 
 <header class="chrome">
@@ -595,7 +640,8 @@ body.intro4 #hero p span { margin: 0 .3em; }
 </header>
 <div id="island" class="glass" role="status" aria-live="polite"></div>
 
-<aside id="dock" class="glass chrome"><h4>IN THIS PLACE</h4><ol id="dockList"></ol></aside>
+<aside id="dock" class="glass chrome"><h4>이곳에 있는 것</h4><ol id="dockList"></ol></aside>
+<div id="where" class="chrome" aria-live="polite"><span class="l"></span><div class="c"><b></b><span></span></div><span class="r"></span></div>
 <div id="compass" class="glass chrome"><div class="mask" id="compassMask"><div class="center"></div></div><div class="read" id="compassRead"></div></div>
 <button class="iconbtn glass chrome" id="dockToggle" style="position:fixed;right:12px;bottom:max(20px,env(safe-area-inset-bottom));z-index:9;width:46px;height:46px" aria-label="목록">≡</button>
 
@@ -616,7 +662,7 @@ import * as THREE from "three";
 const MV = "D54StAZFUrc";
 const REF = "../../refs/official/";
 const PH = (t) => `<div class="ph">자리 표시 — ${t}</div>`;
-const tracks = `<ol><li>소문의 낙원<small>PRE-RELEASE</small></li><li>트랙 이름 02</li><li>트랙 이름 03</li><li>트랙 이름 04</li></ol>`;
+const tracks = `<ol><li>소문의 낙원<small>선공개</small></li><li>트랙 이름 02</li><li>트랙 이름 03</li><li>트랙 이름 04</li></ol>`;
 const mvEmbed = `<iframe src="https://www.youtube-nocookie.com/embed/${MV}" title="소문의 낙원 M/V" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
 const concert = `<div class="btns"><a class="btn fill" href="https://weverse.io/akmu/notice/38517" target="_blank" rel="noopener">공연 공지 보기</a></div>`;
 const deck = (title, side) => `<div class="deck tilt" id="deck" data-title="${title}"><div class="vinyl" id="vinyl"><i style="background-image:url(${REF}cover_flowering.jpg)"></i></div><div class="meta"><b>${title}</b><small>${side}</small><div class="bar"><i id="prog"></i></div></div><button class="pp" id="pp" aria-label="재생">▶</button></div>`;
@@ -625,46 +671,54 @@ const polaroids = () => `<div class="polas">${PHOTOS.map((f, i) => `<div class="
 
 const CONTENT = {
   desert: {
-    stage: { label: "무대", note: "공연", tag: "CONCERT", title: "소문의 낙원", sub: "호수 건너편까지 노래가 들리는 무대",
-      html: `<ul><li>도시 · 공연장<small>YYYY.MM.DD</small></li><li>도시 · 공연장<small>YYYY.MM.DD</small></li><li>도시 · 공연장<small>YYYY.MM.DD</small></li></ul>${concert}${PH("실제 일정·예매 링크")}` },
-    tv: { label: "TV 탑", note: "뮤직비디오", tag: "M/V", title: "소문의 낙원 M/V", sub: "모래언덕 아래 초원에서 찍은 뮤직비디오", html: mvEmbed + `<div class="btns"><a class="btn" href="https://www.youtube.com/watch?v=${MV}" target="_blank" rel="noopener">YouTube에서 보기</a></div>` },
-    records: { label: "레코드 가판대", note: "앨범", tag: "ALBUM", title: "개화 (FLOWERING)", sub: "선공개곡 「소문의 낙원」",
+    stage: { label: "무대", note: "공연 일정", title: "소문의 낙원", sub: "호수 건너편까지 노래가 들리는 무대",
+      html: `<ul><li>도시 · 공연장<small>날짜</small></li><li>도시 · 공연장<small>날짜</small></li><li>도시 · 공연장<small>날짜</small></li></ul>${concert}${PH("실제 일정·예매 링크")}` },
+    tv: { label: "TV 탑", note: "뮤직비디오 틀기", title: "소문의 낙원 M/V", sub: "모래언덕 아래 초원에서 찍은 뮤직비디오", html: mvEmbed + `<div class="btns"><a class="btn" href="https://www.youtube.com/watch?v=${MV}" target="_blank" rel="noopener">YouTube에서 보기</a></div>` },
+    records: { label: "레코드 가판대", note: "『개화』 들춰 보기", title: "개화 (FLOWERING)", sub: "선공개곡 「소문의 낙원」",
       html: `${deck("개화 (FLOWERING)", "AKMU · LP")}${tracks}<div class="btns"><a class="btn fill" href="#">스트리밍</a><a class="btn" href="#">LP 구매</a></div>${PH("실제 트랙리스트와 링크")}` },
-    sign: { label: "표지판", note: "소문", tag: "RUMORS", title: "소문", sub: "낙원에 떠도는 이야기들",
-      html: `<ul><li>새 소식 제목<small>NEWS</small></li><li>새 소식 제목<small>NEWS</small></li><li>새 소식 제목<small>NOTICE</small></li></ul><div class="btns"><button class="btn" data-go="room">THE ROOM →</button><button class="btn" data-open="stage">TOUR →</button><button class="btn" data-open="tv">M/V →</button></div>${PH("공지·뉴스 피드")}` },
-    merch: { label: "옷걸이", note: "굿즈", tag: "MERCH", title: "낙원 굿즈", sub: "바람에 말린 티셔츠와 에코백",
-      html: `<ul><li>낙원 티셔츠 — 크림<small>₩ —</small></li><li>낙원 티셔츠 — 민트<small>₩ —</small></li><li>낙원 티셔츠 — 핑크<small>₩ —</small></li><li>에코백<small>₩ —</small></li></ul><div class="btns"><a class="btn fill" href="#">스토어로</a></div>${PH("실제 상품·스토어 링크")}` },
-    picnic: { label: "호숫가 피크닉", note: "플레이리스트", tag: "PLAYLIST", title: "호숫가에서 듣는 노래", sub: "붐박스에 꽂아 둔 카세트",
+    sign: { label: "표지판", note: "떠도는 이야기", title: "소문", sub: "낙원에 떠도는 이야기들",
+      html: `<ul><li>새 소식 제목<small>소식</small></li><li>새 소식 제목<small>소식</small></li><li>새 소식 제목<small>공지</small></li></ul><div class="btns"><button class="btn" data-go="room">THE ROOM →</button><button class="btn" data-open="stage">TOUR →</button><button class="btn" data-open="tv">M/V →</button></div>${PH("공지·뉴스 피드")}` },
+    merch: { label: "옷걸이", note: "걸린 옷 구경", title: "낙원 굿즈", sub: "바람에 말린 티셔츠와 에코백",
+      html: `<ul><li>낙원 티셔츠 — 크림</li><li>낙원 티셔츠 — 민트</li><li>낙원 티셔츠 — 핑크</li><li>에코백</li></ul><div class="btns"><a class="btn fill" href="#">스토어로</a></div>${PH("실제 상품·스토어 링크")}` },
+    picnic: { label: "호숫가 피크닉", note: "카세트 듣기", title: "호숫가에서 듣는 노래", sub: "붐박스에 꽂아 둔 카세트",
       html: `${deck("호숫가에서 듣는 노래", "CASSETTE · SIDE A")}<ol><li>소문의 낙원<small>01</small></li><li>트랙 이름<small>02</small></li><li>트랙 이름<small>03</small></li></ol>${PH("플레이리스트 연동 (시안에는 음원 없음)")}` },
-    boat: { label: "호수 위의 배", note: "편지", tag: "LETTER", title: "병 속의 편지", sub: "호수에 띄워 보내는 편지",
+    boat: { label: "호수 위의 배", note: "편지 띄우기", title: "병 속의 편지", sub: "호수에 띄워 보내는 편지",
       html: `<textarea placeholder="낙원에 띄울 편지를 적어 주세요"></textarea><div class="bottle" id="bottle"><span></span></div><div class="btns"><button class="btn fill" id="sendLetter">띄워 보내기</button></div>${PH("저장·전송 기능 없음 (시안)")}` },
     door: { label: "언덕 위의 문", note: "방으로", enter: "room" },
   },
   room: {
-    gramophone: { label: "축음기", note: "음악", tag: "SIDE A", title: "개화", sub: "축음기에 레코드를 올려 두었어요", html: `${deck("개화 (FLOWERING)", "SIDE A · 33⅓")}${tracks}${PH("음원 미리듣기 (시안에는 음원 없음)")}` },
-    tv: { label: "TV", note: "뮤직비디오", tag: "M/V", title: "소문의 낙원 M/V", sub: "방 안의 작은 TV", html: mvEmbed },
-    photos: { label: "액자", note: "사진", tag: "PHOTOS", title: "벽에 걸린 장면들", sub: "공연과 뮤직비디오의 순간", html: polaroids() },
-    poster: { label: "포스터", note: "공연", tag: "CONCERT", title: "소문의 낙원", sub: "벽에 붙여 둔 공연 포스터", html: `<img class="tilt" src="${REF}concert_02.png" alt="" style="width:100%;display:block;margin-bottom:14px;border-radius:12px">${concert}` },
-    records: { label: "LP 상자", note: "디스코그래피", tag: "DISCOGRAPHY", title: "레코드 상자", sub: "지금까지의 앨범들", html: `<ul><li>개화 (FLOWERING)<small>LATEST</small></li><li>앨범 제목<small>YYYY</small></li><li>앨범 제목<small>YYYY</small></li></ul>${PH("디스코그래피 데이터")}` },
-    desk: { label: "책상", note: "가사 노트", tag: "NOTES", title: "가사 노트", sub: "창가 책상 위에 펼쳐 둔 노트", html: `<p class="type" style="white-space:pre-line;background:#fbf6ea;padding:16px;border-radius:14px">소문의 낙원 —\n\n(가사 영역)</p>${PH("가사·작업 노트")}` },
-    chess: { label: "체스판", note: "한 판 두기", tag: "CHESS", title: "창가의 체스", sub: "당신은 흰 말, 방의 주인은 검은 말. 말을 누르고 갈 칸을 누르세요.", html: `<div id="chessRoot"></div>`, chess: true },
-    ukulele: { label: "우쿨렐레", note: "비하인드", tag: "BEHIND", title: "비하인드", sub: "작업실에서 생긴 일들", html: `<ul><li>비하인드 영상 제목<small>VIDEO</small></li><li>크레딧<small>CREDIT</small></li></ul>${PH("비하인드 콘텐츠")}` },
-    bed: { label: "침대", note: "밤의 노래", tag: "GOOD NIGHT", title: "잠들기 전에", sub: "불을 끄고 듣는 노래", html: `<ol><li>트랙 이름<small>01</small></li><li>트랙 이름<small>02</small></li><li>트랙 이름<small>03</small></li></ol>${PH("밤 플레이리스트")}` },
-    clock: { label: "괘종시계", note: "타임라인", tag: "TIMELINE", title: "AKMU의 시간", sub: "시계가 기억하는 순간들", html: `<ul><li>YYYY<small>사건 제목</small></li><li>YYYY<small>사건 제목</small></li><li>YYYY<small>사건 제목</small></li></ul>${PH("연대기 데이터")}` },
+    gramophone: { label: "축음기", note: "레코드 올리기", title: "개화", sub: "축음기에 레코드를 올려 두었어요", html: `${deck("개화 (FLOWERING)", "SIDE A · 33⅓")}${tracks}${PH("음원 미리듣기 (시안에는 음원 없음)")}` },
+    tv: { label: "TV", note: "뮤직비디오 틀기", rise: 70, title: "소문의 낙원 M/V", sub: "방 안의 작은 TV", html: mvEmbed },
+    photos: { label: "액자", note: "걸린 사진", title: "벽에 걸린 장면들", sub: "공연과 뮤직비디오의 순간", html: polaroids() },
+    poster: { label: "포스터", note: "붙여 둔 포스터", title: "소문의 낙원", sub: "벽에 붙여 둔 공연 포스터", html: `<img class="tilt" src="${REF}concert_02.png" alt="" style="width:100%;display:block;margin-bottom:14px;border-radius:12px">${concert}` },
+    records: { label: "LP 상자", note: "지난 앨범들", title: "레코드 상자", sub: "지금까지의 앨범들", html: `<ul><li>개화 (FLOWERING)<small>최신</small></li><li>앨범 제목<small>연도</small></li><li>앨범 제목<small>연도</small></li></ul>${PH("디스코그래피 데이터")}` },
+    desk: { label: "책상", note: "펼쳐 둔 노트", title: "가사 노트", sub: "창가 책상 위에 펼쳐 둔 노트", html: `<p class="type" style="white-space:pre-line;background:#fbf6ea;padding:16px;border-radius:14px">소문의 낙원 —\n\n(가사 영역)</p>${PH("가사·작업 노트")}` },
+    chess: { label: "체스판", note: "한 판 두기", title: "창가의 체스", sub: "당신은 흰 말, 방의 주인은 검은 말. 말을 누르고 갈 칸을 누르세요.", html: `<div id="chessRoot"></div>`, chess: true },
+    ukulele: { label: "우쿨렐레", note: "작업실 이야기", title: "비하인드", sub: "작업실에서 생긴 일들", html: `<ul><li>비하인드 영상 제목<small>영상</small></li><li>크레딧<small>크레딧</small></li></ul>${PH("비하인드 콘텐츠")}` },
+    bed: { label: "침대", note: "잠들기 전 노래", title: "잠들기 전에", sub: "불을 끄고 듣는 노래", html: `<ol><li>트랙 이름<small>01</small></li><li>트랙 이름<small>02</small></li><li>트랙 이름<small>03</small></li></ol>${PH("밤 플레이리스트")}` },
+    clock: { label: "괘종시계", note: "지나온 시간", title: "AKMU의 시간", sub: "시계가 기억하는 순간들", html: `<ul><li>연도<small>있었던 일</small></li><li>연도<small>있었던 일</small></li><li>연도<small>있었던 일</small></li></ul>${PH("연대기 데이터")}` },
     window: { label: "창문", note: "낙원으로", enter: "desert" },
   },
 };
+// corners of each place, named for draft 8's heading line: [name, line under it, spots in it]
+const AREAS = {
+  desert: [["무대 앞", "모래언덕 아래 작은 축제", ["stage", "door"]], ["장터", "옷과 TV가 놓인 천막 쪽", ["merch", "tv"]],
+    ["레코드 가판대", "『개화』가 꽂힌 곳", ["records"]], ["갈림길", "떠도는 이야기가 붙은 표지판", ["sign"]], ["호숫가", "배가 떠 있는 물가", ["boat", "picnic"]]],
+  room: [["창가", "낙원이 내다보이는 쪽", ["window", "desk", "chess"]], ["포스터 벽", "공연 포스터가 붙은 벽", ["poster"]],
+    ["TV와 축음기", "음악이 나오는 구석", ["tv", "gramophone"]], ["시계 옆", "오래된 것들이 모인 쪽", ["clock", "records", "ukulele", "photos"]], ["침대 맡", "잠들기 전 머무는 곳", ["bed"]]],
+};
+const areaOf = (pl, key) => AREAS[pl].find((a) => a[2].includes(key));
 // bump when the renders change, so browsers fetch the new images instead of cached ones
-const V = "?r=20261028-webp";
+const V = "?r=20261028-letters";
 const PLACE_NAME = { desert: "소문의 낙원", room: "방" };
 
 const $ = (s) => document.querySelector(s);
-// UI drafts: ?ui=1..7 swaps the labels, compass and glass styling; draft 7 is the default, ?ui=0 shows the old look
+// UI drafts: ?ui=1..8 swaps the labels, compass and glass styling; draft 8 is the default (?ui=7 = the same without the blooming tags and letter cards), ?ui=0 shows the old look
 const uiParam = new URLSearchParams(location.search).get("ui");
-const UI = uiParam === null ? 7 : Math.max(0, Math.min(7, parseInt(uiParam, 10) || 0));
+const UI = uiParam === null ? 8 : Math.max(0, Math.min(8, parseInt(uiParam, 10) || 0));
 // each draft = a label style (lab*) + a compass style (dir*); 6 and 7 mix draft 1's labels with draft 2's heading tape
 const LAB = UI >= 6 ? 1 : UI, DIR = UI >= 6 ? 2 : UI;
-if (UI === 7) document.body.classList.add("ui6");
+if (UI >= 7) document.body.classList.add("ui6", "ui7");
 document.body.classList.add("ui" + UI, "lab" + LAB, "dir" + DIR);
 if (UI) document.body.classList.add("draft");
 const INTRO = Math.max(0, Math.min(4, parseInt(new URLSearchParams(location.search).get("intro"), 10) || 0));
@@ -1020,10 +1074,15 @@ function buildUi() {
     s.hdg = deg360(s.yaw - NORTH);
     const lab = document.createElement("div");
     lab.className = "lab";
-    lab.innerHTML = `<div class="tagx glass"><i class="idx">${String(i + 1).padStart(2, "0")}</i><b>${c.note}</b><span class="nm">${c.label}</span><u class="en">${c.tag || "ENTER"}</u><em class="deg">${DIRS[dirOf(s.hdg)]} ${pad3(s.hdg)}°</em></div><div class="stem"></div><div class="pip"></div><i class="fr"></i>`;
+    if (c.rise) lab.style.setProperty("--rise", c.rise + "px");
+    lab.innerHTML = `<div class="tagx glass"><i class="idx">${String(i + 1).padStart(2, "0")}</i><b>${c.note}</b><span class="nm">${c.label}</span><u class="en">${c.note}</u><em class="deg">${DIRS[dirOf(s.hdg)]} ${pad3(s.hdg)}°</em></div><span class="tap glass">한 번 더 누르면 열려요</span><div class="stem"></div><div class="pip"></div><i class="fr"></i>`;
     lab.onmouseenter = () => setHover(s);
     lab.onmouseleave = () => setHover(null);
-    lab.onclick = () => open(s, lab.firstChild.getBoundingClientRect());
+    lab.onclick = () => {
+      // phones have no hover, so on draft 8 a tap first shows what the star is
+      if (UI === 8 && isTouch && hovered !== s) { setHover(s); return; }
+      open(s, lab.firstChild.getBoundingClientRect());
+    };
     labels.appendChild(lab); s.lab = lab;
     const li = document.createElement("li"), b = document.createElement("button");
     b.textContent = c.label;
@@ -1098,6 +1157,7 @@ function updateUi() {
     }
   }
   if (UI === 3) leaderLines(shown);
+  if (LAB === 1) unstack(shown);
   if (UI) {
     const h = (heading + 360) % 360, k = dirOf(h), near = focus || hovered;
     const html = `<b>${pad3(h)}°</b><span>${DIRS[k]} · ${DIRS_KO[k]}</span><i>${DIRS_KO[k]}쪽</i>${near ? `<em>${UI === 3 ? " · " : ""}${CONTENT[place.name][near.key].label}</em>` : ""}`;
@@ -1105,8 +1165,45 @@ function updateUi() {
     else if (html !== readHtml) $("#compassRead").innerHTML = html;
     readHtml = html;
   }
+  if (UI === 8) where();
   // the glass sheen turns with the view, like light sliding across a lens
   document.documentElement.style.setProperty("--sheen", (110 + heading * 0.6).toFixed(1) + "deg");
+}
+// draft 8: the corner nearest the view, with the next corner over on either side
+let whereHtml = "";
+function where() {
+  let near = null, nd = 1e9, left = null, ld = -1e9, right = null, rd = 1e9;
+  for (const s of place.spots) { const d = Math.abs(wrap(s.yaw - yaw)); if (d < nd) { nd = d; near = s; } }
+  if (!near) return;
+  const here = areaOf(place.name, near.key);
+  for (const s of place.spots) {
+    if (areaOf(place.name, s.key) === here) continue;
+    const d = wrap(s.yaw - yaw);
+    if (d < 0 && d > ld) { ld = d; left = s; } else if (d > 0 && d < rd) { rd = d; right = s; }
+  }
+  const html = here[0] + "|" + (left ? areaOf(place.name, left.key)[0] : "") + "|" + (right ? areaOf(place.name, right.key)[0] : "");
+  if (html === whereHtml) return;
+  const el = $("#where"), changed = whereHtml.split("|")[0] !== here[0];
+  whereHtml = html;
+  el.querySelector(".c b").textContent = here[0]; el.querySelector(".c span").textContent = here[1];
+  el.querySelector(".l").textContent = left ? "‹ " + areaOf(place.name, left.key)[0] : "";
+  el.querySelector(".r").textContent = right ? areaOf(place.name, right.key)[0] + " ›" : "";
+  if (changed) { el.classList.remove("swap"); void el.offsetWidth; el.classList.add("swap"); }
+}
+// tags that would cover one another: the lower object keeps its tag, the higher one's stem grows until it clears
+function unstack(shown) {
+  const placed = [];
+  for (const o of shown.sort((a, b) => b.y - a.y)) {
+    const tag = o.s.lab.firstChild, w = tag.offsetWidth + 8, h = tag.offsetHeight + 6;
+    const base = parseFloat(o.s.lab.style.getPropertyValue("--rise")) || 22;
+    let top = o.y - 14 - base - h, push = 0;
+    for (const p of placed) {
+      if (Math.abs(p.x - o.x) < (p.w + w) / 2 && top + h > p.top && top < p.top + p.h) { const d = top + h - p.top; push += d; top -= d; }
+    }
+    push = Math.min(push, 90);
+    o.s.lab.style.setProperty("--push", push.toFixed(0) + "px");
+    placed.push({ x: o.x, w, h, top });
+  }
 }
 // editorial draft: captions sit in the left/right margins, tied to their object by a hairline
 function leaderLines(shown) {
@@ -1144,6 +1241,8 @@ async function turnTo(dir, toFov, ms = 900) {
 }
 const words = (t) => t.split(" ").map((w, i) => `<span style="animation-delay:${0.12 + i * 0.08}s">${w}</span>`).join(" ");
 let openFrom = null;
+// the day you visit, as a postmark reads it
+const postDate = () => { const d = new Date(); return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`; };
 async function open(s, fromRect) {
   const c = CONTENT[place.name][s.key];
   if (!c || busy) return;
@@ -1156,7 +1255,8 @@ async function open(s, fromRect) {
   $("#shotImg").src = (place.name === "desert" ? "D_" : "R_") + s.key + ".webp" + V;
   const card = $("#card");
   card.classList.remove("ready");
-  card.innerHTML = `<div class="tag">${c.tag}</div><h2>${words(c.title)}</h2><p class="sub">${c.sub}</p>${c.html}`;
+  const pm = UI === 8 && !c.chess ? `<div class="pm">소문의 낙원<b>${postDate()}</b>우체국</div>` : "";
+  card.innerHTML = `${pm}${c.tag ? `<div class="tag">${c.tag}</div>` : ""}<h2>${words(c.title)}</h2><p class="sub">${c.sub}</p>${c.html}`;
   card.classList.toggle("chessing", !!chessMod);
   if (chessMod) chessGame = chessMod.mountChess($("#chessRoot"), { tag: V, blip, openSpot });
   const shot = $("#shot");
